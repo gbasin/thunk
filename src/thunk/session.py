@@ -16,7 +16,7 @@ class SessionManager:
         self.thunk_dir = thunk_dir or Path(".thunk")
         self.sessions_dir = self.thunk_dir / "sessions"
 
-    def create_session(self, feature: str) -> SessionState:
+    def create_session(self, task: str) -> SessionState:
         """Create a new planning session."""
         session_id = uuid.uuid4().hex[:8]
         now = datetime.now()
@@ -30,7 +30,7 @@ class SessionManager:
         # Create initial state
         state = SessionState(
             session_id=session_id,
-            feature=feature,
+            task=task,
             turn=1,
             phase=Phase.INITIALIZING,
             created_at=now,
@@ -40,7 +40,7 @@ class SessionManager:
         # Write meta.yaml
         meta = {
             "session_id": session_id,
-            "feature": feature,
+            "task": task,
             "created_at": now.isoformat(),
         }
         with open(paths.meta, "w") as f:
@@ -67,7 +67,7 @@ class SessionManager:
 
         return SessionState(
             session_id=session_id,
-            feature=meta["feature"],
+            task=meta["task"],
             turn=state_data["turn"],
             phase=Phase(state_data["phase"]),
             created_at=datetime.fromisoformat(meta["created_at"]),

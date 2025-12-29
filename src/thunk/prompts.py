@@ -34,17 +34,17 @@ If you have questions that would affect the plan, add them here:
 
 EXPLORE_PROMPT = """# Exploration Task
 
-You are exploring a codebase to prepare for planning a feature implementation.
+You are exploring a codebase to prepare for planning.
 
-## Feature Request
-{feature}
+## Task
+{task}
 
 ## Project Context
 {context}
 
 ## Instructions
-1. Explore the codebase to understand existing patterns relevant to this feature
-2. Identify any questions that would affect how you'd implement this
+1. Explore the codebase to understand existing patterns relevant to this task
+2. Identify any questions that would affect your approach
 3. Write a skeleton plan with your initial thoughts and questions
 
 Write your output as a markdown plan with the following structure:
@@ -56,24 +56,46 @@ Focus on:
 - Noting risks and unknowns
 """
 
-DRAFT_PROMPT = """# Planning Task (Turn {turn})
+DRAFT_PROMPT_INITIAL = """# Planning Task (Turn 1)
 
-Create a plan for implementing this feature.
+Create a plan for this task.
 
-## Feature Request
-{feature}
+## Task
+{task}
 
 ## Project Context
 {context}
 
-## Previous Q&A
-{qa_history}
+## Instructions
+1. Explore the codebase to understand relevant patterns and architecture
+2. Identify key decisions and unknowns
+3. Write a detailed plan
 
-## User's Previous Edits
-{user_edits}
+Write your plan to: `{output_file}`
+
+{plan_format}
+"""
+
+DRAFT_PROMPT = """# Planning Task (Turn {turn})
+
+Refine the plan based on feedback.
+
+## Task
+{task}
+
+## Current Plan
+Read the current synthesized plan from: `{plan_file}`
+
+This is your starting point - it represents the merged consensus from all agents.
+
+## User Feedback
+{user_feedback}
 
 ## Instructions
-Write a detailed implementation plan addressing any user feedback from previous turns.
+1. Read the current plan file
+2. Review the user feedback above
+3. Update the plan incorporating the feedback
+4. Write your updated plan to: `{output_file}`
 
 {plan_format}
 """
@@ -82,8 +104,8 @@ PEER_REVIEW_PROMPT = """# Peer Review Task
 
 You wrote an initial draft. Now review your peer's draft and improve your plan.
 
-## Feature Request
-{feature}
+## Task
+{task}
 
 ## Your Draft
 {own_draft}
@@ -106,8 +128,8 @@ SYNTHESIS_PROMPT = """# Synthesis Task
 
 Combine multiple agent plans into a unified plan.
 
-## Feature Request
-{feature}
+## Task
+{task}
 
 ## Agent Plans
 
@@ -126,18 +148,17 @@ If agents disagree, add a ## Conflicts section explaining the options.
 
 REFINE_PROMPT = """# Plan Refinement Task (Turn {turn})
 
-The user edited the previous plan. Interpret their changes and improve.
+The user edited the plan. Interpret their changes and improve.
 
-## Feature Request
-{feature}
+## Task
+{task}
 
-## Original Plan (Turn {prev_turn})
-{original_plan}
+## Current Plan
+Read the current synthesized plan from: `{plan_file}`
 
-## User-Edited Plan
-{user_edited_plan}
+This is your starting point - it represents the merged consensus from all agents.
 
-## Changes (Diff)
+## User's Changes (Diff)
 ```diff
 {diff}
 ```
@@ -153,46 +174,66 @@ Interpret the user's edits:
 User's direct edits are REQUIREMENTS - incorporate them exactly.
 User's questions need your THINKING - address each thoroughly.
 
+Write your updated plan to: `{output_file}`
+
 {plan_format}
 """
 
 
-def get_explore_prompt(feature: str, context: str) -> str:
+def get_explore_prompt(task: str, context: str) -> str:
     """Get the exploration prompt."""
     return EXPLORE_PROMPT.format(
-        feature=feature,
+        task=task,
         context=context,
         plan_format=PLAN_FORMAT,
     )
 
 
 def get_draft_prompt(
-    feature: str,
+    task: str,
     context: str,
     turn: int,
-    qa_history: str = "",
-    user_edits: str = "",
+    output_file: str,
+    plan_file: str = "",
+    user_feedback: str = "",
 ) -> str:
-    """Get the draft prompt."""
-    return DRAFT_PROMPT.format(
-        feature=feature,
-        context=context,
-        turn=turn,
-        qa_history=qa_history or "None yet.",
-        user_edits=user_edits or "First turn - no previous edits.",
-        plan_format=PLAN_FORMAT,
-    )
+    """Get the draft prompt.
+
+    Args:
+        task: Task description
+        context: Project context (AGENTS.md or README)
+        turn: Current turn number
+        output_file: Path where agent should write their plan
+        plan_file: Path to current synthesized plan (for turn > 1)
+        user_feedback: User's feedback/diff from previous turn
+    """
+    if turn == 1:
+        return DRAFT_PROMPT_INITIAL.format(
+            task=task,
+            context=context,
+            output_file=output_file,
+            plan_format=PLAN_FORMAT,
+        )
+    else:
+        return DRAFT_PROMPT.format(
+            task=task,
+            turn=turn,
+            plan_file=plan_file,
+            user_feedback=user_feedback or "No specific feedback - improve as you see fit.",
+            output_file=output_file,
+            plan_format=PLAN_FORMAT,
+        )
 
 
 def get_peer_review_prompt(
-    feature: str,
+    task: str,
     own_draft: str,
     peer_id: str,
     peer_draft: str,
 ) -> str:
     """Get the peer review prompt."""
     return PEER_REVIEW_PROMPT.format(
-        feature=feature,
+        task=task,
         own_draft=own_draft,
         peer_id=peer_id,
         peer_draft=peer_draft,
@@ -200,33 +241,40 @@ def get_peer_review_prompt(
     )
 
 
-def get_synthesis_prompt(feature: str, agent_plans: dict[str, str]) -> str:
+def get_synthesis_prompt(task: str, agent_plans: dict[str, str]) -> str:
     """Get the synthesis prompt."""
     plans_text = ""
     for agent_id, plan in agent_plans.items():
         plans_text += f"### {agent_id}\n\n{plan}\n\n"
 
     return SYNTHESIS_PROMPT.format(
-        feature=feature,
+        task=task,
         agent_plans=plans_text,
         plan_format=PLAN_FORMAT,
     )
 
 
 def get_refine_prompt(
-    feature: str,
+    task: str,
     turn: int,
-    original_plan: str,
-    user_edited_plan: str,
+    plan_file: str,
+    output_file: str,
     diff: str,
 ) -> str:
-    """Get the refinement prompt."""
+    """Get the refinement prompt.
+
+    Args:
+        task: Task description
+        turn: Current turn number
+        plan_file: Path to current synthesized plan (agents read this)
+        output_file: Path where agent should write updated plan
+        diff: Unified diff of user's changes
+    """
     return REFINE_PROMPT.format(
-        feature=feature,
+        task=task,
         turn=turn,
-        prev_turn=turn - 1,
-        original_plan=original_plan,
-        user_edited_plan=user_edited_plan,
+        plan_file=plan_file,
+        output_file=output_file,
         diff=diff,
         plan_format=PLAN_FORMAT,
     )

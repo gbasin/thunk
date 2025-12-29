@@ -51,9 +51,12 @@ class TurnOrchestrator:
         turn_agents_dir.mkdir(parents=True, exist_ok=True)
 
         # Get context
-        feature = state.feature
+        task = state.task
         context = self._get_context(paths.root.parent.parent)  # Project root
-        user_edits = self._get_user_edits(paths, turn)
+
+        # For turn > 1, get previous turn file and user's diff
+        prev_turn_file = paths.turn_file(turn - 1) if turn > 1 else None
+        user_feedback = self._get_user_feedback(paths, turn)
 
         # Phase 1: Draft
         state.phase = Phase.DRAFTING
@@ -64,15 +67,18 @@ class TurnOrchestrator:
             state.agents[agent_id] = AgentStatus.WORKING
             self.manager.save_state(state)
 
-            prompt = get_draft_prompt(
-                feature=feature,
-                context=context,
-                turn=turn,
-                user_edits=user_edits,
-            )
-
             draft_file = turn_agents_dir / f"{agent_id}-draft.md"
             log_file = turn_agents_dir / f"{agent_id}-draft.log"
+
+            # Build prompt with file paths for agent to read/write
+            prompt = get_draft_prompt(
+                task=task,
+                context=context,
+                turn=turn,
+                output_file=str(draft_file),
+                plan_file=str(prev_turn_file) if prev_turn_file else "",
+                user_feedback=user_feedback,
+            )
 
             # Working directory for agent (just a simple directory, not git worktree)
             workdir = paths.root / "workdir" / agent_id
@@ -125,7 +131,7 @@ class TurnOrchestrator:
             peer_draft = drafts.get(peer_id, "")
 
             prompt = get_peer_review_prompt(
-                feature=feature,
+                task=task,
                 own_draft=drafts[agent_id],
                 peer_id=peer_id,
                 peer_draft=peer_draft,
@@ -161,12 +167,16 @@ class TurnOrchestrator:
         state.phase = Phase.SYNTHESIZING
         self.manager.save_state(state)
 
-        synthesis = self._synthesize(feature, finals, turn_agents_dir)
+        synthesis = self._synthesize(task, finals, turn_agents_dir)
 
         # Write to turns/NNN.md
         turn_file = paths.turn_file(turn)
         turn_file.parent.mkdir(parents=True, exist_ok=True)
         turn_file.write_text(synthesis)
+
+        # Save snapshot for diffing user edits later
+        snapshot_file = turn_file.with_suffix(".snapshot.md")
+        snapshot_file.write_text(synthesis)
 
         # Transition to user review
         state.phase = Phase.USER_REVIEW
@@ -186,8 +196,12 @@ class TurnOrchestrator:
 
         return "No project context available."
 
-    def _get_user_edits(self, paths, turn: int) -> str:
-        """Get user edits from previous turn."""
+    def _get_user_feedback(self, paths, turn: int) -> str:
+        """Get user feedback as diff from previous turn.
+
+        Returns a unified diff showing what the user changed in the turn file.
+        The turn file starts as the synthesis, user edits it, then we diff.
+        """
         if turn < 2:
             return ""
 
@@ -195,11 +209,30 @@ class TurnOrchestrator:
         if not prev_file.exists():
             return ""
 
-        return prev_file.read_text()
+        # Check if there's a pre-edit snapshot to diff against
+        # (created when synthesis is written, before user edits)
+        snapshot_file = prev_file.with_suffix(".snapshot.md")
+        if snapshot_file.exists():
+            original = snapshot_file.read_text().splitlines()
+            edited = prev_file.read_text().splitlines()
+
+            diff_lines = difflib.unified_diff(
+                original,
+                edited,
+                fromfile="synthesis",
+                tofile="user-edited",
+                lineterm="",
+            )
+            diff = "\n".join(diff_lines)
+            if diff:
+                return f"```diff\n{diff}\n```"
+
+        # Fallback: just return the content as "user's current version"
+        return f"User's current plan:\n\n{prev_file.read_text()}"
 
     def _synthesize(
         self,
-        feature: str,
+        task: str,
         agent_plans: dict[str, str],
         turn_agents_dir: Path,
     ) -> str:
@@ -215,7 +248,7 @@ class TurnOrchestrator:
         else:
             adapter = CodexCLISyncAdapter(synth_config)
 
-        prompt = get_synthesis_prompt(feature, agent_plans)
+        prompt = get_synthesis_prompt(task, agent_plans)
 
         synth_file = turn_agents_dir / "synthesis.md"
         log_file = turn_agents_dir / "synthesis.log"
@@ -234,7 +267,7 @@ class TurnOrchestrator:
             return synth_file.read_text()
 
         # Fallback: just concatenate
-        result = f"# Plan: {feature}\n\n"
+        result = f"# Plan: {task}\n\n"
         result += "## Combined from agents\n\n"
         for agent_id, plan in agent_plans.items():
             result += f"### From {agent_id}\n\n{plan}\n\n---\n\n"

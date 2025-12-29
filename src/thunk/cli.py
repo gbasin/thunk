@@ -36,14 +36,14 @@ def main(ctx: click.Context, thunk_dir: Path | None, pretty: bool) -> None:
 
 
 @main.command()
-@click.argument("feature")
+@click.argument("task")
 @click.pass_context
-def init(ctx: click.Context, feature: str) -> None:
+def init(ctx: click.Context, task: str) -> None:
     """Start a new planning session."""
     manager: SessionManager = ctx.obj["manager"]
     pretty: bool = ctx.obj["pretty"]
 
-    state = manager.create_session(feature)
+    state = manager.create_session(task)
 
     # Update to drafting phase (in real impl, this would spawn agents)
     state.phase = Phase.DRAFTING
@@ -74,7 +74,7 @@ def list_sessions(ctx: click.Context) -> None:
             "sessions": [
                 {
                     "session_id": s.session_id,
-                    "feature": s.feature,
+                    "task": s.task,
                     "turn": s.turn,
                     "phase": s.phase.value,
                     "updated_at": s.updated_at.isoformat(),

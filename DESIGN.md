@@ -320,6 +320,39 @@ Both Claude Code and Codex support **session continuation** in headless mode. Th
     └── cli_session_id.txt    # Codex session ID
 ```
 
+### Context Injection Strategy
+
+**Problem:** How do agents receive updates from synthesis and user edits without diverging from canonical state?
+
+**Solution:** Hybrid approach—synthesis overwrites, user edits as diff.
+
+1. **After AI synthesis:** Agents are told to read the synthesized plan file (`turns/001.md`). This becomes their new baseline—they don't diverge from the canonical merged state.
+
+2. **After user edits:** Agents receive a diff of user changes, preserving their agency to interpret feedback while starting from the synthesis baseline.
+
+3. **Snapshot for diffing:** When synthesis is written, a `.snapshot.md` copy is saved. When the user edits and calls `continue`, we diff against the snapshot to extract only user changes.
+
+**Turn flow:**
+```
+Turn 1:
+  - Agents explore codebase, write drafts
+  - Peer review, write finals
+  - Synthesis → turns/001.md + turns/001.snapshot.md
+  - User edits turns/001.md
+
+Turn 2:
+  - Prompt says: "Read turns/001.md, incorporate this feedback: [diff]"
+  - Agents read synthesized plan (canonical state)
+  - Agents get diff showing what user changed (not full content)
+  - Session continuation preserves codebase knowledge from Turn 1
+```
+
+**Why this works:**
+- Agents stay aligned with canonical synthesis (no divergence)
+- User edits are highlighted as diff (agents exercise judgment)
+- Session continuation preserves exploration context (no re-discovery)
+- Prompts stay small (file paths + diff, not full content)
+
 ### Claude Code (Opus 4.5)
 
 ```python

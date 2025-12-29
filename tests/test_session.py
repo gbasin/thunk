@@ -28,19 +28,19 @@ def test_create_session(manager):
 
     assert state.session_id is not None
     assert len(state.session_id) == 8
-    assert state.feature == "Add caching layer"
+    assert state.task == "Add caching layer"
     assert state.turn == 1
     assert state.phase == Phase.INITIALIZING
 
 
 def test_load_session(manager):
     """Test loading an existing session."""
-    created = manager.create_session("Test feature")
+    created = manager.create_session("Test task")
     loaded = manager.load_session(created.session_id)
 
     assert loaded is not None
     assert loaded.session_id == created.session_id
-    assert loaded.feature == created.feature
+    assert loaded.task == created.task
 
 
 def test_load_nonexistent_session(manager):
@@ -51,20 +51,20 @@ def test_load_nonexistent_session(manager):
 
 def test_list_sessions(manager):
     """Test listing sessions."""
-    manager.create_session("Feature 1")
-    manager.create_session("Feature 2")
+    manager.create_session("Task 1")
+    manager.create_session("Task 2")
 
     sessions = manager.list_sessions()
 
     assert len(sessions) == 2
-    features = {s.feature for s in sessions}
-    assert "Feature 1" in features
-    assert "Feature 2" in features
+    tasks = {s.task for s in sessions}
+    assert "Task 1" in tasks
+    assert "Task 2" in tasks
 
 
 def test_save_state(manager):
     """Test saving session state."""
-    state = manager.create_session("Test feature")
+    state = manager.create_session("Test task")
     state.turn = 2
     state.phase = Phase.USER_REVIEW
     manager.save_state(state)
@@ -77,7 +77,7 @@ def test_save_state(manager):
 
 def test_clean_session(manager):
     """Test cleaning up a session."""
-    state = manager.create_session("Test feature")
+    state = manager.create_session("Test task")
     session_id = state.session_id
 
     assert manager.clean_session(session_id) is True
@@ -91,7 +91,7 @@ def test_clean_nonexistent_session(manager):
 
 def test_get_paths(manager):
     """Test getting session paths."""
-    state = manager.create_session("Test feature")
+    state = manager.create_session("Test task")
     paths = manager.get_paths(state.session_id)
 
     assert paths.root.exists()
@@ -103,7 +103,7 @@ def test_get_paths(manager):
 
 def test_turn_file_path(manager):
     """Test turn file path generation."""
-    state = manager.create_session("Test feature")
+    state = manager.create_session("Test task")
     paths = manager.get_paths(state.session_id)
 
     assert paths.turn_file(1).name == "001.md"
@@ -113,13 +113,13 @@ def test_turn_file_path(manager):
 
 def test_has_questions_empty(manager):
     """Test has_questions with no turn file."""
-    state = manager.create_session("Test feature")
+    state = manager.create_session("Test task")
     assert manager.has_questions(state.session_id) is False
 
 
 def test_has_questions_with_unanswered(manager):
     """Test has_questions with unanswered questions."""
-    state = manager.create_session("Test feature")
+    state = manager.create_session("Test task")
     paths = manager.get_paths(state.session_id)
 
     # Create turn file with unanswered question
@@ -141,7 +141,7 @@ TBD
 
 def test_has_questions_all_answered(manager):
     """Test has_questions when all questions are answered."""
-    state = manager.create_session("Test feature")
+    state = manager.create_session("Test task")
     paths = manager.get_paths(state.session_id)
 
     turn_file = paths.turn_file(1)

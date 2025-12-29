@@ -43,7 +43,7 @@ class SessionState:
     """Current state of a planning session."""
 
     session_id: str
-    feature: str
+    task: str
     turn: int
     phase: Phase
     created_at: datetime
@@ -53,7 +53,7 @@ class SessionState:
     def to_dict(self) -> dict[str, Any]:
         return {
             "session_id": self.session_id,
-            "feature": self.feature,
+            "task": self.task,
             "turn": self.turn,
             "phase": self.phase.value,
             "created_at": self.created_at.isoformat(),
