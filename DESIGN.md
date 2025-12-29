@@ -205,37 +205,48 @@ Simple user-facing structure. Agent internals in optional subdirectory:
 ├── config.yaml                      # Global agent configs
 └── sessions/
     └── <session_id>/
-        ├── meta.yaml                # Feature description, timestamp
+        ├── meta.yaml                # Task description, timestamp
         ├── state.yaml               # {turn: 2, phase: "user_review"}
         │
-        ├── turns/                   # USER-FACING: just numbered files
-        │   ├── 001.md               # Turn 1 synthesis (may have Questions)
-        │   ├── 002.md               # Turn 2 (after user edited 001.md)
-        │   └── 003.md               # Turn 3...
+        ├── opus.md                  # Agent's working plan (thunk overwrites after synthesis)
+        ├── codex.md                 # Agent's working plan
         │
-        ├── agents/                  # OPTIONAL: agent work for transparency
+        ├── turns/                   # USER-FACING: numbered synthesis files
+        │   ├── 001.md               # Turn 1 synthesis (user edits this)
+        │   ├── 001.snapshot.md      # Pre-edit snapshot for diffing
+        │   ├── 002.md               # Turn 2 synthesis
+        │   └── ...
+        │
+        ├── agents/                  # Agent work for transparency
         │   ├── opus/
         │   │   └── cli_session_id.txt   # Claude Code session ID (for --resume)
         │   ├── codex/
         │   │   └── cli_session_id.txt   # Codex session ID (for resume)
         │   ├── turn-001/
         │   │   ├── opus-draft.md
-        │   │   ├── codex-draft.md
         │   │   ├── opus-final.md    # After peer review
+        │   │   ├── codex-draft.md
         │   │   └── codex-final.md
         │   └── turn-002/
         │       └── ...
         │
+        ├── workdir/                 # Agent working directories
+        │   ├── opus/
+        │   └── codex/
+        │
         └── PLAN.md                  # Symlink to approved turn
-
-worktree-thunk-<session_id>-opus/    # Agent working directories
-worktree-thunk-<session_id>-codex/   # (cleaned up after each turn)
 ```
 
 **User sees**: `turns/001.md`, `turns/002.md`, etc.
+**Agents read/write**: Their own `opus.md` or `codex.md` (synced after each synthesis)
 **Debug/inspect**: `agents/` subdirectory has all drafts and peer-reviewed versions
 
-**Turn flow:** agents draft → peer review → synthesize to `turns/NNN.md` → user edits → next turn
+**Turn flow:**
+1. Agents read their working file (`opus.md`), write draft
+2. Peer review, write final
+3. Synthesis → writes to `turns/NNN.md` AND overwrites each agent's working file
+4. User edits `turns/NNN.md`
+5. Next turn: agents read their file (now contains synthesis), get user diff
 
 ---
 
@@ -324,34 +335,39 @@ Both Claude Code and Codex support **session continuation** in headless mode. Th
 
 **Problem:** How do agents receive updates from synthesis and user edits without diverging from canonical state?
 
-**Solution:** Hybrid approach—synthesis overwrites, user edits as diff.
+**Solution:** Per-agent working files + synthesis overwrite + user edits as diff.
 
-1. **After AI synthesis:** Agents are told to read the synthesized plan file (`turns/001.md`). This becomes their new baseline—they don't diverge from the canonical merged state.
+1. **Per-agent working files:** Each agent has their own plan file (`opus.md`, `codex.md`). They always read/write their own file—consistent mental model.
 
-2. **After user edits:** Agents receive a diff of user changes, preserving their agency to interpret feedback while starting from the synthesis baseline.
+2. **After AI synthesis:** Thunk overwrites each agent's working file with the synthesis. All agents start the next turn from the same canonical baseline.
 
-3. **Snapshot for diffing:** When synthesis is written, a `.snapshot.md` copy is saved. When the user edits and calls `continue`, we diff against the snapshot to extract only user changes.
+3. **After user edits:** Agents receive a diff of user changes in the prompt, preserving their agency to interpret feedback.
+
+4. **Snapshot for diffing:** When synthesis is written, a `.snapshot.md` copy is saved. We diff against the snapshot to extract only user changes.
+
+5. **Self-discovery:** Agents explore the codebase themselves (AGENTS.md, README.md) rather than receiving context in prompts. Session continuation preserves this knowledge.
 
 **Turn flow:**
 ```
 Turn 1:
-  - Agents explore codebase, write drafts
+  - Agents explore codebase, discover AGENTS.md/README.md
+  - Write drafts to agents/turn-001/{agent}-draft.md
   - Peer review, write finals
-  - Synthesis → turns/001.md + turns/001.snapshot.md
+  - Synthesis → turns/001.md + opus.md + codex.md (all identical)
   - User edits turns/001.md
 
 Turn 2:
-  - Prompt says: "Read turns/001.md, incorporate this feedback: [diff]"
-  - Agents read synthesized plan (canonical state)
-  - Agents get diff showing what user changed (not full content)
+  - Agents read their working file (opus.md) - contains synthesis
+  - Prompt includes user diff: "incorporate this feedback: [diff]"
   - Session continuation preserves codebase knowledge from Turn 1
 ```
 
 **Why this works:**
-- Agents stay aligned with canonical synthesis (no divergence)
-- User edits are highlighted as diff (agents exercise judgment)
-- Session continuation preserves exploration context (no re-discovery)
-- Prompts stay small (file paths + diff, not full content)
+- Agents have consistent "own file" mental model
+- Synthesis overwrite keeps all agents in sync (no divergence)
+- User edits as diff preserves agent judgment
+- Self-discovery is more agentic than prompt injection
+- Session continuation preserves exploration context
 
 ### Claude Code (Opus 4.5)
 

@@ -50,12 +50,7 @@ class TurnOrchestrator:
         turn_agents_dir = paths.agents / f"turn-{turn:03d}"
         turn_agents_dir.mkdir(parents=True, exist_ok=True)
 
-        # Get context
         task = state.task
-        context = self._get_context(paths.root.parent.parent)  # Project root
-
-        # For turn > 1, get previous turn file and user's diff
-        prev_turn_file = paths.turn_file(turn - 1) if turn > 1 else None
         user_feedback = self._get_user_feedback(paths, turn)
 
         # Phase 1: Draft
@@ -67,20 +62,21 @@ class TurnOrchestrator:
             state.agents[agent_id] = AgentStatus.WORKING
             self.manager.save_state(state)
 
+            # Agent's working plan file (contains synthesis from previous turn)
+            agent_plan_file = paths.agent_plan_file(agent_id)
             draft_file = turn_agents_dir / f"{agent_id}-draft.md"
             log_file = turn_agents_dir / f"{agent_id}-draft.log"
 
-            # Build prompt with file paths for agent to read/write
+            # Build prompt - agent reads their own plan file, writes to draft
             prompt = get_draft_prompt(
                 task=task,
-                context=context,
                 turn=turn,
                 output_file=str(draft_file),
-                plan_file=str(prev_turn_file) if prev_turn_file else "",
+                plan_file=str(agent_plan_file) if turn > 1 else "",
                 user_feedback=user_feedback,
             )
 
-            # Working directory for agent (just a simple directory, not git worktree)
+            # Working directory for agent
             workdir = paths.root / "workdir" / agent_id
             workdir.mkdir(parents=True, exist_ok=True)
 
@@ -169,7 +165,7 @@ class TurnOrchestrator:
 
         synthesis = self._synthesize(task, finals, turn_agents_dir)
 
-        # Write to turns/NNN.md
+        # Write to turns/NNN.md (user-facing canonical file)
         turn_file = paths.turn_file(turn)
         turn_file.parent.mkdir(parents=True, exist_ok=True)
         turn_file.write_text(synthesis)
@@ -178,23 +174,17 @@ class TurnOrchestrator:
         snapshot_file = turn_file.with_suffix(".snapshot.md")
         snapshot_file.write_text(synthesis)
 
+        # Write synthesis back to each agent's working file
+        # This keeps all agents in sync with the canonical state
+        for agent_id in self.adapters:
+            agent_plan_file = paths.agent_plan_file(agent_id)
+            agent_plan_file.write_text(synthesis)
+
         # Transition to user review
         state.phase = Phase.USER_REVIEW
         self.manager.save_state(state)
 
         return True
-
-    def _get_context(self, project_root: Path) -> str:
-        """Get project context from AGENTS.md or README."""
-        agents_md = project_root / "AGENTS.md"
-        if agents_md.exists():
-            return agents_md.read_text()
-
-        readme = project_root / "README.md"
-        if readme.exists():
-            return readme.read_text()
-
-        return "No project context available."
 
     def _get_user_feedback(self, paths, turn: int) -> str:
         """Get user feedback as diff from previous turn.

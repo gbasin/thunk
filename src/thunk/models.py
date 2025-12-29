@@ -98,6 +98,14 @@ class SessionPaths:
         """Get path to an agent's directory."""
         return self.agents / agent_id
 
+    def agent_plan_file(self, agent_id: str) -> Path:
+        """Get path to an agent's working plan file.
+
+        This file is the agent's "view" of the plan. Thunk overwrites it
+        with the synthesis after each turn, so agents stay in sync.
+        """
+        return self.root / f"{agent_id}.md"
+
 
 @dataclass
 class ThunkConfig:

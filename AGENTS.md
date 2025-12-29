@@ -41,13 +41,13 @@
 
 Thunk is a multi-agent ensemble planning CLI. It orchestrates multiple AI agents
 (Claude Code, OpenAI Codex) to collaboratively create implementation plans for
-feature work, with human-in-the-loop review.
+tasks, with human-in-the-loop review.
 
 See `DESIGN.md` for the full architecture and design decisions.
 
 ## Commands
 
-    thunk init "feature description"     # Start planning session
+    thunk init "task description"        # Start planning session
     thunk wait --session <id>            # Block until turn complete
     thunk continue --session <id>        # Start next turn after user edits
     thunk approve --session <id>         # Lock plan as final
@@ -72,10 +72,12 @@ See `DESIGN.md` for the full architecture and design decisions.
 ## Session File Structure
 
     .thunk/sessions/<session_id>/
-    ├── meta.yaml        # Feature description, timestamp
+    ├── meta.yaml        # Task description, timestamp
     ├── state.yaml       # Current turn, phase
+    ├── opus.md          # Agent's working plan (synced after synthesis)
+    ├── codex.md         # Agent's working plan
     ├── turns/
-    │   ├── 001.md       # Turn 1 synthesis
+    │   ├── 001.md       # Turn 1 synthesis (user edits this)
     │   ├── 002.md       # Turn 2
     │   └── ...
     ├── agents/

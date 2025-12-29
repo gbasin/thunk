@@ -1,6 +1,6 @@
 ---
 name: thunk-planning
-description: Multi-agent ensemble planning with thunk CLI. Use when discussing implementation plans, feature planning, or when user mentions thunk sessions. Knows thunk CLI syntax and workflow.
+description: Multi-agent ensemble planning with thunk CLI. Use when discussing implementation plans, task planning, or when user mentions thunk sessions. Knows thunk CLI syntax and workflow.
 ---
 
 # Thunk Planning Workflow
@@ -11,7 +11,7 @@ Thunk orchestrates multiple AI agents (Claude Code + OpenAI Codex) to create imp
 
 | Command | Purpose |
 |---------|---------|
-| `thunk init "feature"` | Start new planning session |
+| `thunk init "task"` | Start new planning session |
 | `thunk wait --session <id>` | Block until turn complete |
 | `thunk status --session <id>` | Check progress |
 | `thunk continue --session <id>` | Start next turn after edits |
@@ -70,10 +70,12 @@ init → wait → [user edits] → continue → wait → ... → approve
 
 ```
 .thunk/sessions/<session_id>/
-├── meta.yaml           # Feature, created_at
+├── meta.yaml           # Task, created_at
 ├── state.yaml          # turn, phase, agent statuses
+├── opus.md             # Agent's working plan (synced after synthesis)
+├── codex.md            # Agent's working plan
 ├── turns/
-│   ├── 001.md          # Turn 1 synthesis
+│   ├── 001.md          # Turn 1 synthesis (user edits this)
 │   └── 002.md          # Turn 2
 ├── agents/
 │   ├── opus/cli_session_id.txt

@@ -1,8 +1,8 @@
 ---
-description: Start a multi-agent planning session for a feature. Creates a thunk session and waits for agents to complete the first turn.
+description: Start a multi-agent planning session for a task. Creates a thunk session and waits for agents to complete the first turn.
 ---
 
-# Plan Feature
+# Plan Task
 
 Start a planning session for: **$ARGUMENTS**
 

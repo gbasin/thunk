@@ -32,30 +32,6 @@ If you have questions that would affect the plan, add them here:
 - **[Alternative]**: Rejected because [reason]
 """
 
-EXPLORE_PROMPT = """# Exploration Task
-
-You are exploring a codebase to prepare for planning.
-
-## Task
-{task}
-
-## Project Context
-{context}
-
-## Instructions
-1. Explore the codebase to understand existing patterns relevant to this task
-2. Identify any questions that would affect your approach
-3. Write a skeleton plan with your initial thoughts and questions
-
-Write your output as a markdown plan with the following structure:
-{plan_format}
-
-Focus on:
-- Understanding existing patterns
-- Identifying key decisions that need user input
-- Noting risks and unknowns
-"""
-
 DRAFT_PROMPT_INITIAL = """# Planning Task (Turn 1)
 
 Create a plan for this task.
@@ -63,13 +39,11 @@ Create a plan for this task.
 ## Task
 {task}
 
-## Project Context
-{context}
-
 ## Instructions
-1. Explore the codebase to understand relevant patterns and architecture
-2. Identify key decisions and unknowns
-3. Write a detailed plan
+1. Explore the codebase - look for AGENTS.md, README.md, or documentation
+2. Understand the project's conventions, architecture, and patterns
+3. Identify key decisions and unknowns
+4. Write a detailed plan
 
 Write your plan to: `{output_file}`
 
@@ -83,16 +57,16 @@ Refine the plan based on feedback.
 ## Task
 {task}
 
-## Current Plan
-Read the current synthesized plan from: `{plan_file}`
+## Your Working Plan
+Read your current plan from: `{plan_file}`
 
-This is your starting point - it represents the merged consensus from all agents.
+This file contains the synthesized plan from the previous turn.
 
 ## User Feedback
 {user_feedback}
 
 ## Instructions
-1. Read the current plan file
+1. Read your current plan file
 2. Review the user feedback above
 3. Update the plan incorporating the feedback
 4. Write your updated plan to: `{output_file}`
@@ -180,18 +154,8 @@ Write your updated plan to: `{output_file}`
 """
 
 
-def get_explore_prompt(task: str, context: str) -> str:
-    """Get the exploration prompt."""
-    return EXPLORE_PROMPT.format(
-        task=task,
-        context=context,
-        plan_format=PLAN_FORMAT,
-    )
-
-
 def get_draft_prompt(
     task: str,
-    context: str,
     turn: int,
     output_file: str,
     plan_file: str = "",
@@ -201,16 +165,14 @@ def get_draft_prompt(
 
     Args:
         task: Task description
-        context: Project context (AGENTS.md or README)
         turn: Current turn number
         output_file: Path where agent should write their plan
-        plan_file: Path to current synthesized plan (for turn > 1)
+        plan_file: Path to agent's working plan file (for turn > 1)
         user_feedback: User's feedback/diff from previous turn
     """
     if turn == 1:
         return DRAFT_PROMPT_INITIAL.format(
             task=task,
-            context=context,
             output_file=output_file,
             plan_format=PLAN_FORMAT,
         )
