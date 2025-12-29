@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT=$(git rev-parse --show-toplevel)
+
+# Auto-fix lint issues before quality checks
+uv run ruff check --fix "$ROOT" 2>/dev/null || true
+uv run ruff format "$ROOT" 2>/dev/null || true
+
+# Re-stage any fixed files
+git add -u
+
+"$ROOT/scripts/run-quality-checks.sh"
