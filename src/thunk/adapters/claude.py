@@ -225,8 +225,11 @@ class ClaudeCodeSyncAdapter(AgentAdapter):
             _write_session_id(session_file, new_session_id)
 
             if process.returncode == 0:
-                output_file.write_text(output_text)
-                return True, output_text
+                # Don't overwrite output_file - agent should have written to it directly
+                # Only write if file doesn't exist or is empty (agent failed to write)
+                if not output_file.exists() or output_file.stat().st_size == 0:
+                    output_file.write_text(output_text)
+                return True, output_file.read_text() if output_file.exists() else output_text
             else:
                 return False, full_output or "Unknown error"
 

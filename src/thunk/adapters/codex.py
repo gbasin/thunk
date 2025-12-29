@@ -115,8 +115,8 @@ class CodexCLISyncAdapter(AgentAdapter):
         thread_id = _read_thread_id(session_file)
 
         if thread_id:
-            # Resume existing session
-            cmd = ["codex", "resume", thread_id, "--json"]
+            # Resume existing session (--json must come before session ID)
+            cmd = ["codex", "resume", "--json", thread_id]
             # Add project root for resumed sessions too
             if project_root:
                 cmd.extend(["--add-dir", str(project_root)])
@@ -179,8 +179,11 @@ class CodexCLISyncAdapter(AgentAdapter):
             _write_thread_id(session_file, thread_id)
 
             if process.returncode == 0:
-                output_file.write_text(final_output)
-                return True, final_output
+                # Don't overwrite output_file - agent should have written to it directly
+                # Only write if file doesn't exist or is empty (agent failed to write)
+                if not output_file.exists() or output_file.stat().st_size == 0:
+                    output_file.write_text(final_output)
+                return True, output_file.read_text() if output_file.exists() else final_output
             else:
                 return False, full_output or "Unknown error"
 
