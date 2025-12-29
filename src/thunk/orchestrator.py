@@ -87,16 +87,16 @@ class TurnOrchestrator:
                 user_feedback=user_feedback,
             )
 
-            # Working directory for agent
-            workdir = paths.root / "workdir" / agent_id
-            workdir.mkdir(parents=True, exist_ok=True)
+            # Working directory for agent - use project root so agents can explore
+            # The project root is where .thunk/ lives (parent of sessions dir)
+            project_root = self.manager.thunk_dir.parent.resolve()
 
             # Session file for CLI session continuation across turns
             session_file = paths.agent_session_file(agent_id)
             session_file.parent.mkdir(parents=True, exist_ok=True)
 
             success, output = adapter.run_sync(
-                worktree=workdir,
+                worktree=project_root,
                 prompt=prompt,
                 output_file=draft_file,
                 log_file=log_file,
@@ -122,6 +122,9 @@ class TurnOrchestrator:
         state.phase = Phase.PEER_REVIEW
         self.manager.save_state(state)
 
+        # Project root for agent working directory
+        project_root = self.manager.thunk_dir.parent.resolve()
+
         finals: dict[str, str] = {}
         agent_ids = list(drafts.keys())
 
@@ -146,13 +149,12 @@ class TurnOrchestrator:
 
             final_file = turn_agents_dir / f"{agent_id}-final.md"
             log_file = turn_agents_dir / f"{agent_id}-final.log"
-            workdir = paths.root / "workdir" / agent_id
 
             # Reuse session file for continuation
             session_file = paths.agent_session_file(agent_id)
 
             success, output = adapter.run_sync(
-                worktree=workdir,
+                worktree=project_root,
                 prompt=prompt,
                 output_file=final_file,
                 log_file=log_file,
@@ -254,11 +256,11 @@ class TurnOrchestrator:
 
         synth_file = turn_agents_dir / "synthesis.md"
         log_file = turn_agents_dir / "synthesis.log"
-        workdir = turn_agents_dir / "synth-workdir"
-        workdir.mkdir(parents=True, exist_ok=True)
+        # Use project root for synthesis agent too
+        project_root = self.manager.thunk_dir.parent.resolve()
 
         success, output = adapter.run_sync(
-            worktree=workdir,
+            worktree=project_root,
             prompt=prompt,
             output_file=synth_file,
             log_file=log_file,

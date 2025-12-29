@@ -4,6 +4,18 @@ description: Multi-agent ensemble planning with thunk CLI. Use when discussing i
 
 # Thunk Planning Workflow
 
+## Setup (if thunk command not found)
+
+If the `thunk` command is not available, install it first:
+
+```bash
+cd /path/to/thunk/repo  # where pyproject.toml lives
+uv venv && source .venv/bin/activate
+uv pip install -e .
+```
+
+Or in an existing venv: `source .venv/bin/activate && uv pip install -e .`
+
 Thunk orchestrates multiple AI agents (Claude Code + OpenAI Codex) to create implementation plans through iterative refinement.
 
 ## Quick Reference

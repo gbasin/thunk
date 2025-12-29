@@ -88,12 +88,80 @@ class ClaudeCodeSyncAdapter(AgentAdapter):
     def __init__(self, config: AgentConfig):
         super().__init__(config)
 
-    def _build_cmd(self, prompt: str, session_file: Path | None = None) -> list[str]:
-        """Build command with optional session resumption."""
+    def _build_cmd(
+        self,
+        prompt: str,
+        session_file: Path | None = None,
+        project_root: Path | None = None,
+    ) -> list[str]:
+        """Build command with optional session resumption and project permissions."""
         cmd = ["claude", "--print", "--output-format", "json"]
 
         if self.config.model:
             cmd.extend(["--model", self.config.model])
+
+        # Allow full access within project directory
+        if project_root:
+            cmd.extend(["--add-dir", str(project_root)])
+            # Allow all tools needed for exploration and planning
+            cmd.extend(
+                [
+                    "--allowedTools",
+                    # File operations
+                    "Read",
+                    "Edit",
+                    "Write",
+                    "MultiEdit",
+                    "Glob",
+                    "Grep",
+                    "LS",
+                    # Notebook support
+                    "NotebookRead",
+                    "NotebookEdit",
+                    # Web access for research
+                    "WebFetch",
+                    "WebSearch",
+                    # Subagents for complex exploration
+                    "Task",
+                    # Bash - allow most common commands for exploration
+                    "Bash(git:*)",
+                    "Bash(ls:*)",
+                    "Bash(find:*)",
+                    "Bash(cat:*)",
+                    "Bash(head:*)",
+                    "Bash(tail:*)",
+                    "Bash(wc:*)",
+                    "Bash(grep:*)",
+                    "Bash(rg:*)",
+                    "Bash(tree:*)",
+                    "Bash(file:*)",
+                    "Bash(stat:*)",
+                    "Bash(du:*)",
+                    "Bash(pwd:*)",
+                    "Bash(echo:*)",
+                    "Bash(which:*)",
+                    "Bash(env:*)",
+                    "Bash(python:*)",
+                    "Bash(python3:*)",
+                    "Bash(node:*)",
+                    "Bash(npm:*)",
+                    "Bash(pnpm:*)",
+                    "Bash(yarn:*)",
+                    "Bash(pip:*)",
+                    "Bash(uv:*)",
+                    "Bash(cargo:*)",
+                    "Bash(go:*)",
+                    "Bash(make:*)",
+                    "Bash(jq:*)",
+                    "Bash(curl:*)",
+                    "Bash(diff:*)",
+                    "Bash(sort:*)",
+                    "Bash(uniq:*)",
+                    "Bash(xargs:*)",
+                    "Bash(sed:*)",
+                    "Bash(awk:*)",
+                ]
+            )
 
         cli_session_id = _read_session_id(session_file)
         if cli_session_id:
@@ -113,48 +181,54 @@ class ClaudeCodeSyncAdapter(AgentAdapter):
     ) -> tuple[bool, str]:
         """
         Run Claude Code synchronously with session continuation.
+        Streams output to log file in real-time.
 
         Returns:
             Tuple of (success, output)
         """
-        cmd = self._build_cmd(prompt, session_file)
+        cmd = self._build_cmd(prompt, session_file, project_root=worktree)
 
         try:
-            result = subprocess.run(
-                cmd,
-                cwd=worktree,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
+            # Use Popen to stream output in real-time
+            with open(log_file, "w") as log_fh:
+                process = subprocess.Popen(
+                    cmd,
+                    cwd=worktree,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+
+                # Stream output to log file as it arrives
+                output_lines: list[str] = []
+                assert process.stdout is not None
+                for line in process.stdout:
+                    log_fh.write(line)
+                    log_fh.flush()
+                    output_lines.append(line)
+
+                process.wait(timeout=timeout)
+                full_output = "".join(output_lines)
 
             # Parse JSON output to extract session_id and result
-            output_text = result.stdout
+            output_text = full_output
             new_session_id = None
 
             try:
-                data = json.loads(result.stdout)
+                data = json.loads(full_output)
                 new_session_id = data.get("session_id")
-                output_text = data.get("result", result.stdout)
+                output_text = data.get("result", full_output)
             except json.JSONDecodeError:
                 pass  # Fall back to raw output
 
             # Save session ID atomically
             _write_session_id(session_file, new_session_id)
 
-            # Write output to files
-            with open(log_file, "w") as f:
-                f.write(f"Session ID: {new_session_id}\n---\n")
-                f.write(result.stdout)
-                if result.stderr:
-                    f.write("\n--- STDERR ---\n")
-                    f.write(result.stderr)
-
-            if result.returncode == 0:
+            if process.returncode == 0:
                 output_file.write_text(output_text)
                 return True, output_text
             else:
-                return False, result.stderr or "Unknown error"
+                return False, full_output or "Unknown error"
 
         except subprocess.TimeoutExpired:
             return False, "Timeout expired"
@@ -172,7 +246,7 @@ class ClaudeCodeSyncAdapter(AgentAdapter):
         session_file: Path | None = None,
     ) -> AgentHandle:
         """Spawn Claude Code as a subprocess."""
-        cmd = self._build_cmd(prompt, session_file)
+        cmd = self._build_cmd(prompt, session_file, project_root=worktree)
 
         log_fh = open(log_file, "w")
 

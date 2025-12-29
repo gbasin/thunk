@@ -6,6 +6,13 @@ description: Start a multi-agent planning session for a task. Creates a thunk se
 
 Start a planning session for: **$ARGUMENTS**
 
+## Prerequisites
+
+If the `thunk` command is not found, install it first:
+```bash
+source .venv/bin/activate && uv pip install -e .
+```
+
 ## Steps
 
 1. Run `thunk init "$ARGUMENTS"` to create the session

@@ -105,16 +105,32 @@ class CodexCLISyncAdapter(AgentAdapter):
     def __init__(self, config: AgentConfig):
         super().__init__(config)
 
-    def _build_cmd(self, prompt: str, session_file: Path | None = None) -> list[str]:
-        """Build command with optional session resumption."""
+    def _build_cmd(
+        self,
+        prompt: str,
+        session_file: Path | None = None,
+        project_root: Path | None = None,
+    ) -> list[str]:
+        """Build command with optional session resumption and project permissions."""
         thread_id = _read_thread_id(session_file)
 
         if thread_id:
-            # Resume existing session: codex resume <thread_id> --json "prompt"
-            return ["codex", "resume", thread_id, "--json", prompt]
+            # Resume existing session
+            cmd = ["codex", "resume", thread_id, "--json"]
+            # Add project root for resumed sessions too
+            if project_root:
+                cmd.extend(["--add-dir", str(project_root)])
         else:
-            # New session: codex exec --json "prompt"
-            return ["codex", "exec", "--json", prompt]
+            # New session with full auto mode for minimal friction
+            cmd = ["codex", "exec", "--json"]
+            # --full-auto enables workspace-write sandbox + auto-approve
+            cmd.append("--full-auto")
+            # Add project root as additional writable directory
+            if project_root:
+                cmd.extend(["--add-dir", str(project_root)])
+
+        cmd.append(prompt)
+        return cmd
 
     def run_sync(
         self,
@@ -127,40 +143,46 @@ class CodexCLISyncAdapter(AgentAdapter):
     ) -> tuple[bool, str]:
         """
         Run Codex CLI synchronously with session continuation.
+        Streams output to log file in real-time.
 
         Returns:
             Tuple of (success, output)
         """
-        cmd = self._build_cmd(prompt, session_file)
+        cmd = self._build_cmd(prompt, session_file, project_root=worktree)
 
         try:
-            result = subprocess.run(
-                cmd,
-                cwd=worktree,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
+            # Use Popen to stream output in real-time
+            with open(log_file, "w") as log_fh:
+                process = subprocess.Popen(
+                    cmd,
+                    cwd=worktree,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+
+                # Stream output to log file as it arrives
+                output_lines: list[str] = []
+                assert process.stdout is not None
+                for line in process.stdout:
+                    log_fh.write(line)
+                    log_fh.flush()
+                    output_lines.append(line)
+
+                process.wait(timeout=timeout)
+                full_output = "".join(output_lines)
 
             # Parse output
-            thread_id, final_output = _parse_codex_output(result.stdout)
+            thread_id, final_output = _parse_codex_output(full_output)
 
             # Save thread_id atomically
             _write_thread_id(session_file, thread_id)
 
-            # Write output to files
-            with open(log_file, "w") as f:
-                f.write(f"Thread ID: {thread_id}\n---\n")
-                f.write(result.stdout)
-                if result.stderr:
-                    f.write("\n--- STDERR ---\n")
-                    f.write(result.stderr)
-
-            if result.returncode == 0:
+            if process.returncode == 0:
                 output_file.write_text(final_output)
                 return True, final_output
             else:
-                return False, result.stderr or "Unknown error"
+                return False, full_output or "Unknown error"
 
         except subprocess.TimeoutExpired:
             return False, "Timeout expired"
@@ -178,7 +200,7 @@ class CodexCLISyncAdapter(AgentAdapter):
         session_file: Path | None = None,
     ) -> AgentHandle:
         """Spawn Codex CLI as a subprocess."""
-        cmd = self._build_cmd(prompt, session_file)
+        cmd = self._build_cmd(prompt, session_file, project_root=worktree)
 
         log_fh = open(log_file, "w")
 
