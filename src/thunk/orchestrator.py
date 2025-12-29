@@ -7,7 +7,7 @@ from .adapters.base import AgentAdapter
 from .adapters.claude import ClaudeCodeSyncAdapter
 from .adapters.codex import CodexCLISyncAdapter
 from .models import AgentStatus, Phase, ThunkConfig
-from .names import generate_plan_id
+from .names import generate_unique_name
 from .prompts import (
     get_draft_prompt,
     get_peer_review_prompt,
@@ -55,9 +55,12 @@ class TurnOrchestrator:
         user_feedback = self._get_user_feedback(paths, turn)
 
         # Generate plan IDs for any new agents (lazy initialization)
+        # Use collision-aware generator to avoid duplicate plan IDs
         for agent_id in self.adapters:
             if agent_id not in state.agent_plan_ids:
-                state.agent_plan_ids[agent_id] = generate_plan_id()
+                existing = set(state.agent_plan_ids.values())
+                plan_id = generate_unique_name(existing)
+                state.agent_plan_ids[agent_id] = plan_id
         self.manager.save_state(state)
 
         # Phase 1: Draft

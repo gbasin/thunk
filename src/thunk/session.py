@@ -1,12 +1,13 @@
 """Session management for thunk."""
 
+import uuid
 from datetime import datetime
 from pathlib import Path
 
 import yaml
 
 from .models import AgentStatus, Phase, SessionPaths, SessionState
-from .names import generate_plan_id
+from .names import generate_name
 
 
 class SessionManager:
@@ -18,7 +19,7 @@ class SessionManager:
 
     def create_session(self, task: str) -> SessionState:
         """Create a new planning session."""
-        session_id = generate_plan_id()
+        session_id = self._generate_unique_session_id()
         now = datetime.now()
 
         # Create session directory structure
@@ -116,6 +117,15 @@ class SessionManager:
         """Internal path getter."""
         root = self.sessions_dir / session_id
         return SessionPaths.from_root(root)
+
+    def _generate_unique_session_id(self) -> str:
+        """Generate a unique session ID, avoiding collisions."""
+        for _ in range(10):
+            session_id = generate_name()
+            if not (self.sessions_dir / session_id).exists():
+                return session_id
+        # Fallback: append random suffix to guarantee uniqueness
+        return f"{generate_name()}-{uuid.uuid4().hex[:4]}"
 
     def clean_session(self, session_id: str) -> bool:
         """Remove a session and its data."""
