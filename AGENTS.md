@@ -64,7 +64,6 @@ See `DESIGN.md` for the full architecture and design decisions.
     ├── session.py       # Session management
     ├── orchestrator.py  # Turn orchestration (draft → peer review → synthesis)
     ├── prompts.py       # Agent prompt templates
-    ├── worktree.py      # Git worktree management
     └── adapters/
         ├── base.py      # AgentAdapter interface
         ├── claude.py    # Claude Code adapter (with session continuation)

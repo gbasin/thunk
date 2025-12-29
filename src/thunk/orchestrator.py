@@ -74,16 +74,16 @@ class TurnOrchestrator:
             draft_file = turn_agents_dir / f"{agent_id}-draft.md"
             log_file = turn_agents_dir / f"{agent_id}-draft.log"
 
-            # Get worktree path (for now, just use a temp location)
-            worktree = paths.root / "worktree" / agent_id
-            worktree.mkdir(parents=True, exist_ok=True)
+            # Working directory for agent (just a simple directory, not git worktree)
+            workdir = paths.root / "workdir" / agent_id
+            workdir.mkdir(parents=True, exist_ok=True)
 
             # Session file for CLI session continuation across turns
             session_file = paths.agent_session_file(agent_id)
             session_file.parent.mkdir(parents=True, exist_ok=True)
 
             success, output = adapter.run_sync(
-                worktree=worktree,
+                worktree=workdir,
                 prompt=prompt,
                 output_file=draft_file,
                 log_file=log_file,
@@ -133,13 +133,13 @@ class TurnOrchestrator:
 
             final_file = turn_agents_dir / f"{agent_id}-final.md"
             log_file = turn_agents_dir / f"{agent_id}-final.log"
-            worktree = paths.root / "worktree" / agent_id
+            workdir = paths.root / "workdir" / agent_id
 
             # Reuse session file for continuation
             session_file = paths.agent_session_file(agent_id)
 
             success, output = adapter.run_sync(
-                worktree=worktree,
+                worktree=workdir,
                 prompt=prompt,
                 output_file=final_file,
                 log_file=log_file,
@@ -219,11 +219,11 @@ class TurnOrchestrator:
 
         synth_file = turn_agents_dir / "synthesis.md"
         log_file = turn_agents_dir / "synthesis.log"
-        worktree = turn_agents_dir / "synth-worktree"
-        worktree.mkdir(parents=True, exist_ok=True)
+        workdir = turn_agents_dir / "synth-workdir"
+        workdir.mkdir(parents=True, exist_ok=True)
 
         success, output = adapter.run_sync(
-            worktree=worktree,
+            worktree=workdir,
             prompt=prompt,
             output_file=synth_file,
             log_file=log_file,
