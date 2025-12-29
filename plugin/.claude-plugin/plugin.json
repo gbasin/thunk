@@ -15,5 +15,7 @@
     "implementation-plans",
     "codex",
     "claude-code"
-  ]
+  ],
+  "commands": "./commands/",
+  "skills": "./skills/"
 }

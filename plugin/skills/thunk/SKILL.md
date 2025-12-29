@@ -1,5 +1,4 @@
 ---
-name: thunk-planning
 description: Multi-agent ensemble planning with thunk CLI. Use when discussing implementation plans, task planning, or when user mentions thunk sessions. Knows thunk CLI syntax and workflow.
 ---
 
