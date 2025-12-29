@@ -1,0 +1,11 @@
+{
+  "name": "thunk",
+  "version": "0.1.0",
+  "description": "Multi-agent ensemble planning CLI. Orchestrates Claude Code and Codex to collaboratively create implementation plans.",
+  "author": {
+    "name": "Gary Basin"
+  },
+  "repository": "https://github.com/garybasin/thunk",
+  "license": "MIT",
+  "keywords": ["planning", "multi-agent", "ensemble", "implementation-plans"]
+}
