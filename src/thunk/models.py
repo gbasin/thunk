@@ -49,6 +49,7 @@ class SessionState:
     created_at: datetime
     updated_at: datetime
     agents: dict[str, AgentStatus] = field(default_factory=dict)
+    agent_plan_ids: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,6 +60,7 @@ class SessionState:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "agents": {k: v.value for k, v in self.agents.items()},
+            "agent_plan_ids": self.agent_plan_ids,
         }
 
 
@@ -97,14 +99,6 @@ class SessionPaths:
     def agent_dir(self, agent_id: str) -> Path:
         """Get path to an agent's directory."""
         return self.agents / agent_id
-
-    def agent_plan_file(self, agent_id: str) -> Path:
-        """Get path to an agent's working plan file.
-
-        This file is the agent's "view" of the plan. Thunk overwrites it
-        with the synthesis after each turn, so agents stay in sync.
-        """
-        return self.root / f"{agent_id}.md"
 
 
 @dataclass

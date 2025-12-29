@@ -71,11 +71,11 @@ See `DESIGN.md` for the full architecture and design decisions.
 
 ## Session File Structure
 
-    .thunk/sessions/<session_id>/
+    .thunk/sessions/swift-river/      # Human-friendly session ID
     ├── meta.yaml        # Task description, timestamp
-    ├── state.yaml       # Current turn, phase
-    ├── opus.md          # Agent's working plan (synced after synthesis)
-    ├── codex.md         # Agent's working plan
+    ├── state.yaml       # Current turn, phase, agent_plan_ids
+    ├── bold-peak.md     # Agent's working plan (opaque name)
+    ├── calm-forest.md   # Another agent's working plan
     ├── turns/
     │   ├── 001.md       # Turn 1 synthesis (user edits this)
     │   ├── 002.md       # Turn 2

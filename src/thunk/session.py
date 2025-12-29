@@ -1,12 +1,12 @@
 """Session management for thunk."""
 
-import uuid
 from datetime import datetime
 from pathlib import Path
 
 import yaml
 
 from .models import AgentStatus, Phase, SessionPaths, SessionState
+from .names import generate_plan_id
 
 
 class SessionManager:
@@ -18,7 +18,7 @@ class SessionManager:
 
     def create_session(self, task: str) -> SessionState:
         """Create a new planning session."""
-        session_id = uuid.uuid4().hex[:8]
+        session_id = generate_plan_id()
         now = datetime.now()
 
         # Create session directory structure
@@ -73,6 +73,7 @@ class SessionManager:
             created_at=datetime.fromisoformat(meta["created_at"]),
             updated_at=datetime.fromisoformat(state_data["updated_at"]),
             agents={k: AgentStatus(v) for k, v in state_data.get("agents", {}).items()},
+            agent_plan_ids=state_data.get("agent_plan_ids", {}),
         )
 
     def save_state(self, state: SessionState) -> None:
@@ -88,6 +89,7 @@ class SessionManager:
             "phase": state.phase.value,
             "updated_at": state.updated_at.isoformat(),
             "agents": {k: v.value for k, v in state.agents.items()},
+            "agent_plan_ids": state.agent_plan_ids,
         }
         with open(paths.state, "w") as f:
             yaml.dump(state_data, f)

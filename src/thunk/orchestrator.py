@@ -7,6 +7,7 @@ from .adapters.base import AgentAdapter
 from .adapters.claude import ClaudeCodeSyncAdapter
 from .adapters.codex import CodexCLISyncAdapter
 from .models import AgentStatus, Phase, ThunkConfig
+from .names import generate_plan_id
 from .prompts import (
     get_draft_prompt,
     get_peer_review_prompt,
@@ -53,6 +54,12 @@ class TurnOrchestrator:
         task = state.task
         user_feedback = self._get_user_feedback(paths, turn)
 
+        # Generate plan IDs for any new agents (lazy initialization)
+        for agent_id in self.adapters:
+            if agent_id not in state.agent_plan_ids:
+                state.agent_plan_ids[agent_id] = generate_plan_id()
+        self.manager.save_state(state)
+
         # Phase 1: Draft
         state.phase = Phase.DRAFTING
         self.manager.save_state(state)
@@ -63,7 +70,8 @@ class TurnOrchestrator:
             self.manager.save_state(state)
 
             # Agent's working plan file (contains synthesis from previous turn)
-            agent_plan_file = paths.agent_plan_file(agent_id)
+            plan_id = state.agent_plan_ids[agent_id]
+            agent_plan_file = paths.root / f"{plan_id}.md"
             draft_file = turn_agents_dir / f"{agent_id}-draft.md"
             log_file = turn_agents_dir / f"{agent_id}-draft.log"
 
@@ -177,7 +185,8 @@ class TurnOrchestrator:
         # Write synthesis back to each agent's working file
         # This keeps all agents in sync with the canonical state
         for agent_id in self.adapters:
-            agent_plan_file = paths.agent_plan_file(agent_id)
+            plan_id = state.agent_plan_ids[agent_id]
+            agent_plan_file = paths.root / f"{plan_id}.md"
             agent_plan_file.write_text(synthesis)
 
         # Transition to user review

@@ -204,12 +204,12 @@ Simple user-facing structure. Agent internals in optional subdirectory:
 .thunk/
 ├── config.yaml                      # Global agent configs
 └── sessions/
-    └── <session_id>/
+    └── swift-river/                 # Human-friendly session ID
         ├── meta.yaml                # Task description, timestamp
-        ├── state.yaml               # {turn: 2, phase: "user_review"}
+        ├── state.yaml               # {turn: 2, phase: "user_review", agent_plan_ids: {...}}
         │
-        ├── opus.md                  # Agent's working plan (thunk overwrites after synthesis)
-        ├── codex.md                 # Agent's working plan
+        ├── bold-peak.md             # Agent's working plan (opaque name, thunk-managed)
+        ├── calm-forest.md           # Another agent's working plan
         │
         ├── turns/                   # USER-FACING: numbered synthesis files
         │   ├── 001.md               # Turn 1 synthesis (user edits this)
@@ -237,12 +237,14 @@ Simple user-facing structure. Agent internals in optional subdirectory:
         └── PLAN.md                  # Symlink to approved turn
 ```
 
+**Naming:** Session IDs and agent plan files use human-friendly names like `swift-river`, `bold-peak`. This prevents models from getting confused about which file belongs to which agent—they just follow the path given in the prompt.
+
 **User sees**: `turns/001.md`, `turns/002.md`, etc.
-**Agents read/write**: Their own `opus.md` or `codex.md` (synced after each synthesis)
+**Agents read/write**: Their opaque working file (e.g., `bold-peak.md`) synced after each synthesis
 **Debug/inspect**: `agents/` subdirectory has all drafts and peer-reviewed versions
 
 **Turn flow:**
-1. Agents read their working file (`opus.md`), write draft
+1. Agents read their working file (`bold-peak.md`), write draft
 2. Peer review, write final
 3. Synthesis → writes to `turns/NNN.md` AND overwrites each agent's working file
 4. User edits `turns/NNN.md`
@@ -335,35 +337,38 @@ Both Claude Code and Codex support **session continuation** in headless mode. Th
 
 **Problem:** How do agents receive updates from synthesis and user edits without diverging from canonical state?
 
-**Solution:** Per-agent working files + synthesis overwrite + user edits as diff.
+**Solution:** Opaque per-agent working files + synthesis overwrite + user edits as diff.
 
-1. **Per-agent working files:** Each agent has their own plan file (`opus.md`, `codex.md`). They always read/write their own file—consistent mental model.
+1. **Per-agent working files with opaque names:** Each agent has their own plan file with a human-friendly but opaque name (e.g., `bold-peak.md`). The mapping from agent_id → plan_id is stored in `state.yaml`. This prevents models from getting confused about which file belongs to which agent.
 
-2. **After AI synthesis:** Thunk overwrites each agent's working file with the synthesis. All agents start the next turn from the same canonical baseline.
+2. **Lazy initialization:** Plan IDs are generated when the orchestrator first runs, not at session creation. This decouples session management from agent configuration.
 
-3. **After user edits:** Agents receive a diff of user changes in the prompt, preserving their agency to interpret feedback.
+3. **After AI synthesis:** Thunk overwrites each agent's working file with the synthesis. All agents start the next turn from the same canonical baseline.
 
-4. **Snapshot for diffing:** When synthesis is written, a `.snapshot.md` copy is saved. We diff against the snapshot to extract only user changes.
+4. **After user edits:** Agents receive a diff of user changes in the prompt, preserving their agency to interpret feedback.
 
-5. **Self-discovery:** Agents explore the codebase themselves (AGENTS.md, README.md) rather than receiving context in prompts. Session continuation preserves this knowledge.
+5. **Snapshot for diffing:** When synthesis is written, a `.snapshot.md` copy is saved. We diff against the snapshot to extract only user changes.
+
+6. **Self-discovery:** Agents explore the codebase themselves (AGENTS.md, README.md) rather than receiving context in prompts. Session continuation preserves this knowledge.
 
 **Turn flow:**
 ```
 Turn 1:
+  - Orchestrator generates plan IDs: {opus: "bold-peak", codex: "calm-forest"}
   - Agents explore codebase, discover AGENTS.md/README.md
   - Write drafts to agents/turn-001/{agent}-draft.md
   - Peer review, write finals
-  - Synthesis → turns/001.md + opus.md + codex.md (all identical)
+  - Synthesis → turns/001.md + bold-peak.md + calm-forest.md (all identical)
   - User edits turns/001.md
 
 Turn 2:
-  - Agents read their working file (opus.md) - contains synthesis
+  - Agents read their working file (bold-peak.md) - contains synthesis
   - Prompt includes user diff: "incorporate this feedback: [diff]"
   - Session continuation preserves codebase knowledge from Turn 1
 ```
 
 **Why this works:**
-- Agents have consistent "own file" mental model
+- Opaque file names prevent model confusion
 - Synthesis overwrite keeps all agents in sync (no divergence)
 - User edits as diff preserves agent judgment
 - Self-discovery is more agentic than prompt injection

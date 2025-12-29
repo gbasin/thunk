@@ -27,7 +27,7 @@ def test_create_session(manager):
     state = manager.create_session("Add caching layer")
 
     assert state.session_id is not None
-    assert len(state.session_id) == 8
+    assert "-" in state.session_id  # Human-friendly format like "swift-river"
     assert state.task == "Add caching layer"
     assert state.turn == 1
     assert state.phase == Phase.INITIALIZING
