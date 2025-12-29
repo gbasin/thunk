@@ -1,4 +1,4 @@
-"""Claude Code adapter with session continuation support."""
+"""Codex CLI adapter with session continuation support."""
 
 import json
 import subprocess
@@ -8,8 +8,8 @@ from ..models import AgentConfig
 from .base import AgentAdapter, AgentHandle
 
 
-def _read_session_id(session_file: Path | None) -> str | None:
-    """Safely read session ID from file."""
+def _read_thread_id(session_file: Path | None) -> str | None:
+    """Safely read thread ID from file."""
     if not session_file or not session_file.exists():
         return None
     try:
@@ -18,36 +18,55 @@ def _read_session_id(session_file: Path | None) -> str | None:
         return None
 
 
-def _write_session_id(session_file: Path | None, session_id: str | None) -> None:
-    """Atomically write session ID to file."""
-    if not session_file or not session_id:
+def _write_thread_id(session_file: Path | None, thread_id: str | None) -> None:
+    """Atomically write thread ID to file."""
+    if not session_file or not thread_id:
         return
     session_file.parent.mkdir(parents=True, exist_ok=True)
-    # Atomic write using temp file
     temp_file = session_file.with_suffix(".tmp")
-    temp_file.write_text(session_id)
+    temp_file.write_text(thread_id)
     temp_file.replace(session_file)
 
 
-class ClaudeCodeAdapter(AgentAdapter):
-    """Adapter for Claude Code CLI with session continuation."""
+def _parse_codex_output(stdout: str) -> tuple[str | None, str]:
+    """Parse Codex JSON lines output to extract thread_id and final message."""
+    thread_id = None
+    messages: list[str] = []
+
+    for line in stdout.strip().split("\n"):
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+            if event.get("type") == "thread.started":
+                thread_id = event.get("thread_id")
+            elif event.get("type") == "item.message" and event.get("role") == "assistant":
+                content = event.get("content", "")
+                if content:
+                    messages.append(content)
+        except json.JSONDecodeError:
+            pass  # Skip non-JSON lines
+
+    final_output = messages[-1] if messages else stdout
+    return thread_id, final_output
+
+
+class CodexCLIAdapter(AgentAdapter):
+    """Adapter for OpenAI Codex CLI with session continuation."""
 
     def __init__(self, config: AgentConfig):
         super().__init__(config)
 
     def _build_cmd(self, prompt: str, session_file: Path | None = None) -> list[str]:
         """Build command with optional session resumption."""
-        cmd = ["claude", "--print", "--output-format", "json"]
+        thread_id = _read_thread_id(session_file)
 
-        if self.config.model:
-            cmd.extend(["--model", self.config.model])
-
-        cli_session_id = _read_session_id(session_file)
-        if cli_session_id:
-            cmd.extend(["--resume", cli_session_id])
-
-        cmd.extend(["-p", prompt])
-        return cmd
+        if thread_id:
+            # Resume existing session: codex resume <thread_id> --json "prompt"
+            return ["codex", "resume", thread_id, "--json", prompt]
+        else:
+            # New session: codex exec --json "prompt"
+            return ["codex", "exec", "--json", prompt]
 
     def spawn(
         self,
@@ -57,11 +76,9 @@ class ClaudeCodeAdapter(AgentAdapter):
         log_file: Path,
         session_file: Path | None = None,
     ) -> AgentHandle:
-        """Spawn Claude Code as a subprocess, optionally resuming a session."""
+        """Spawn Codex CLI as a subprocess, optionally resuming a session."""
         cmd = self._build_cmd(prompt, session_file)
 
-        # Note: log_fh intentionally left open - will be closed when process exits
-        # and file descriptor is garbage collected. For proper cleanup, use run_sync.
         log_fh = open(log_file, "w")
 
         process = subprocess.Popen(
@@ -79,28 +96,25 @@ class ClaudeCodeAdapter(AgentAdapter):
         )
 
     def get_name(self) -> str:
-        return f"Claude Code ({self.config.model})"
+        return f"Codex CLI ({self.config.model})"
 
 
-class ClaudeCodeSyncAdapter(AgentAdapter):
-    """Synchronous Claude Code adapter with session continuation."""
+class CodexCLISyncAdapter(AgentAdapter):
+    """Synchronous Codex CLI adapter with session continuation."""
 
     def __init__(self, config: AgentConfig):
         super().__init__(config)
 
     def _build_cmd(self, prompt: str, session_file: Path | None = None) -> list[str]:
         """Build command with optional session resumption."""
-        cmd = ["claude", "--print", "--output-format", "json"]
+        thread_id = _read_thread_id(session_file)
 
-        if self.config.model:
-            cmd.extend(["--model", self.config.model])
-
-        cli_session_id = _read_session_id(session_file)
-        if cli_session_id:
-            cmd.extend(["--resume", cli_session_id])
-
-        cmd.extend(["-p", prompt])
-        return cmd
+        if thread_id:
+            # Resume existing session: codex resume <thread_id> --json "prompt"
+            return ["codex", "resume", thread_id, "--json", prompt]
+        else:
+            # New session: codex exec --json "prompt"
+            return ["codex", "exec", "--json", prompt]
 
     def run_sync(
         self,
@@ -112,7 +126,7 @@ class ClaudeCodeSyncAdapter(AgentAdapter):
         session_file: Path | None = None,
     ) -> tuple[bool, str]:
         """
-        Run Claude Code synchronously with session continuation.
+        Run Codex CLI synchronously with session continuation.
 
         Returns:
             Tuple of (success, output)
@@ -128,38 +142,30 @@ class ClaudeCodeSyncAdapter(AgentAdapter):
                 timeout=timeout,
             )
 
-            # Parse JSON output to extract session_id and result
-            output_text = result.stdout
-            new_session_id = None
+            # Parse output
+            thread_id, final_output = _parse_codex_output(result.stdout)
 
-            try:
-                data = json.loads(result.stdout)
-                new_session_id = data.get("session_id")
-                output_text = data.get("result", result.stdout)
-            except json.JSONDecodeError:
-                pass  # Fall back to raw output
-
-            # Save session ID atomically
-            _write_session_id(session_file, new_session_id)
+            # Save thread_id atomically
+            _write_thread_id(session_file, thread_id)
 
             # Write output to files
             with open(log_file, "w") as f:
-                f.write(f"Session ID: {new_session_id}\n---\n")
+                f.write(f"Thread ID: {thread_id}\n---\n")
                 f.write(result.stdout)
                 if result.stderr:
                     f.write("\n--- STDERR ---\n")
                     f.write(result.stderr)
 
             if result.returncode == 0:
-                output_file.write_text(output_text)
-                return True, output_text
+                output_file.write_text(final_output)
+                return True, final_output
             else:
                 return False, result.stderr or "Unknown error"
 
         except subprocess.TimeoutExpired:
             return False, "Timeout expired"
         except FileNotFoundError:
-            return False, "claude CLI not found. Install from: https://claude.ai/code"
+            return False, "codex CLI not found. Install with: npm install -g @openai/codex"
         except Exception as e:
             return False, str(e)
 
@@ -171,7 +177,7 @@ class ClaudeCodeSyncAdapter(AgentAdapter):
         log_file: Path,
         session_file: Path | None = None,
     ) -> AgentHandle:
-        """Spawn Claude Code as a subprocess."""
+        """Spawn Codex CLI as a subprocess."""
         cmd = self._build_cmd(prompt, session_file)
 
         log_fh = open(log_file, "w")
@@ -191,4 +197,4 @@ class ClaudeCodeSyncAdapter(AgentAdapter):
         )
 
     def get_name(self) -> str:
-        return f"Claude Code Sync ({self.config.model})"
+        return f"Codex CLI Sync ({self.config.model})"

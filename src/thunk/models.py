@@ -90,6 +90,14 @@ class SessionPaths:
         """Get path to agent work for a turn."""
         return self.agents / f"turn-{turn:03d}"
 
+    def agent_session_file(self, agent_id: str) -> Path:
+        """Get path to an agent's CLI session ID file for continuation."""
+        return self.agents / agent_id / "cli_session_id.txt"
+
+    def agent_dir(self, agent_id: str) -> Path:
+        """Get path to an agent's directory."""
+        return self.agents / agent_id
+
 
 @dataclass
 class ThunkConfig:
@@ -104,7 +112,7 @@ class ThunkConfig:
         return cls(
             agents=[
                 AgentConfig(id="opus", type="claude", model="opus"),
-                AgentConfig(id="codex", type="openai", model="gpt-4o"),
+                AgentConfig(id="codex", type="codex", model="codex-mini-latest"),
             ],
             synthesizer=AgentConfig(id="synthesizer", type="claude", model="opus"),
         )

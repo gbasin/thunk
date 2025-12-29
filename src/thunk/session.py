@@ -156,7 +156,9 @@ class SessionManager:
                     # Also check next line in case answer is on new line
                     if i + 1 < len(lines):
                         next_line = lines[i + 1].strip()
-                        if not next_line or next_line.startswith("###") or next_line.startswith("---"):
+                        is_empty = not next_line
+                        is_section = next_line.startswith("###") or next_line.startswith("---")
+                        if is_empty or is_section:
                             return True
                     else:
                         return True

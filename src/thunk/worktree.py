@@ -55,6 +55,7 @@ class WorktreeManager:
         except subprocess.CalledProcessError:
             # Try manual cleanup
             import shutil
+
             try:
                 shutil.rmtree(worktree_path)
                 # Prune worktree references

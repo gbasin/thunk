@@ -32,7 +32,7 @@ class AgentHandle:
 
 
 class AgentAdapter(ABC):
-    """Base class for agent adapters."""
+    """Base class for agent adapters with session continuation support."""
 
     def __init__(self, config: AgentConfig):
         self.config = config
@@ -44,6 +44,7 @@ class AgentAdapter(ABC):
         prompt: str,
         output_file: Path,
         log_file: Path,
+        session_file: Path | None = None,
     ) -> AgentHandle:
         """
         Spawn an agent to work on a task.
@@ -53,6 +54,7 @@ class AgentAdapter(ABC):
             prompt: The prompt/task for the agent
             output_file: Where the agent should write its output
             log_file: Where to capture agent logs
+            session_file: Path to store/read CLI session ID for continuation
 
         Returns:
             Handle to the running agent
@@ -66,15 +68,24 @@ class AgentAdapter(ABC):
         output_file: Path,
         log_file: Path,
         timeout: int | None = None,
+        session_file: Path | None = None,
     ) -> tuple[bool, str]:
         """
         Run agent synchronously.
+
+        Args:
+            worktree: Working directory for the agent
+            prompt: The prompt/task for the agent
+            output_file: Where the agent should write its output
+            log_file: Where to capture agent logs
+            timeout: Timeout in seconds
+            session_file: Path to store/read CLI session ID for continuation
 
         Returns:
             Tuple of (success, output)
         """
         # Default implementation uses spawn and waits
-        handle = self.spawn(worktree, prompt, output_file, log_file)
+        handle = self.spawn(worktree, prompt, output_file, log_file, session_file)
         if hasattr(handle.process, "wait"):
             handle.process.wait(timeout=timeout)
         if output_file.exists():

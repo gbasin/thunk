@@ -1,6 +1,6 @@
 """Prompt templates for agents."""
 
-PLAN_FORMAT = '''
+PLAN_FORMAT = """
 ## Questions (if any)
 
 If you have questions that would affect the plan, add them here:
@@ -30,9 +30,9 @@ If you have questions that would affect the plan, add them here:
 ## Alternatives Considered
 
 - **[Alternative]**: Rejected because [reason]
-'''
+"""
 
-EXPLORE_PROMPT = '''# Exploration Task
+EXPLORE_PROMPT = """# Exploration Task
 
 You are exploring a codebase to prepare for planning a feature implementation.
 
@@ -54,9 +54,9 @@ Focus on:
 - Understanding existing patterns
 - Identifying key decisions that need user input
 - Noting risks and unknowns
-'''
+"""
 
-DRAFT_PROMPT = '''# Planning Task (Turn {turn})
+DRAFT_PROMPT = """# Planning Task (Turn {turn})
 
 Create a plan for implementing this feature.
 
@@ -76,9 +76,9 @@ Create a plan for implementing this feature.
 Write a detailed implementation plan addressing any user feedback from previous turns.
 
 {plan_format}
-'''
+"""
 
-PEER_REVIEW_PROMPT = '''# Peer Review Task
+PEER_REVIEW_PROMPT = """# Peer Review Task
 
 You wrote an initial draft. Now review your peer's draft and improve your plan.
 
@@ -100,9 +100,9 @@ You wrote an initial draft. Now review your peer's draft and improve your plan.
 Your final plan should be BETTER than your draft.
 
 {plan_format}
-'''
+"""
 
-SYNTHESIS_PROMPT = '''# Synthesis Task
+SYNTHESIS_PROMPT = """# Synthesis Task
 
 Combine multiple agent plans into a unified plan.
 
@@ -122,9 +122,9 @@ Combine multiple agent plans into a unified plan.
 If agents disagree, add a ## Conflicts section explaining the options.
 
 {plan_format}
-'''
+"""
 
-REFINE_PROMPT = '''# Plan Refinement Task (Turn {turn})
+REFINE_PROMPT = """# Plan Refinement Task (Turn {turn})
 
 The user edited the previous plan. Interpret their changes and improve.
 
@@ -154,7 +154,7 @@ User's direct edits are REQUIREMENTS - incorporate them exactly.
 User's questions need your THINKING - address each thoroughly.
 
 {plan_format}
-'''
+"""
 
 
 def get_explore_prompt(feature: str, context: str) -> str:

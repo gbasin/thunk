@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .adapters.base import AgentAdapter
 from .adapters.claude import ClaudeCodeSyncAdapter
+from .adapters.codex import CodexCLISyncAdapter
 from .models import AgentStatus, Phase, ThunkConfig
 from .prompts import (
     get_draft_prompt,
@@ -31,9 +32,8 @@ class TurnOrchestrator:
             if agent_cfg.enabled:
                 if agent_cfg.type == "claude":
                     self.adapters[agent_cfg.id] = ClaudeCodeSyncAdapter(agent_cfg)
-                elif agent_cfg.type == "openai":
-                    from .adapters.openai import OpenAIAdapter
-                    self.adapters[agent_cfg.id] = OpenAIAdapter(agent_cfg)
+                elif agent_cfg.type == "codex":
+                    self.adapters[agent_cfg.id] = CodexCLISyncAdapter(agent_cfg)
 
     def run_turn(self, session_id: str) -> bool:
         """
@@ -78,12 +78,17 @@ class TurnOrchestrator:
             worktree = paths.root / "worktree" / agent_id
             worktree.mkdir(parents=True, exist_ok=True)
 
+            # Session file for CLI session continuation across turns
+            session_file = paths.agent_session_file(agent_id)
+            session_file.parent.mkdir(parents=True, exist_ok=True)
+
             success, output = adapter.run_sync(
                 worktree=worktree,
                 prompt=prompt,
                 output_file=draft_file,
                 log_file=log_file,
                 timeout=self.config.timeout,
+                session_file=session_file,
             )
 
             if success:
@@ -130,12 +135,16 @@ class TurnOrchestrator:
             log_file = turn_agents_dir / f"{agent_id}-final.log"
             worktree = paths.root / "worktree" / agent_id
 
+            # Reuse session file for continuation
+            session_file = paths.agent_session_file(agent_id)
+
             success, output = adapter.run_sync(
                 worktree=worktree,
                 prompt=prompt,
                 output_file=final_file,
                 log_file=log_file,
                 timeout=self.config.timeout,
+                session_file=session_file,
             )
 
             if success:
@@ -204,8 +213,7 @@ class TurnOrchestrator:
         if synth_config.type == "claude":
             adapter = ClaudeCodeSyncAdapter(synth_config)
         else:
-            from .adapters.openai import OpenAIAdapter
-            adapter = OpenAIAdapter(synth_config)
+            adapter = CodexCLISyncAdapter(synth_config)
 
         prompt = get_synthesis_prompt(feature, agent_plans)
 

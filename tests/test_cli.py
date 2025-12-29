@@ -25,10 +25,9 @@ def temp_dir():
 
 def test_init_command(runner, temp_dir):
     """Test init command."""
-    result = runner.invoke(main, [
-        "--thunk-dir", str(temp_dir / ".thunk"),
-        "init", "Add caching layer"
-    ])
+    result = runner.invoke(
+        main, ["--thunk-dir", str(temp_dir / ".thunk"), "init", "Add caching layer"]
+    )
 
     assert result.exit_code == 0
     data = json.loads(result.output)
@@ -38,10 +37,7 @@ def test_init_command(runner, temp_dir):
 
 def test_list_command_empty(runner, temp_dir):
     """Test list command with no sessions."""
-    result = runner.invoke(main, [
-        "--thunk-dir", str(temp_dir / ".thunk"),
-        "list"
-    ])
+    result = runner.invoke(main, ["--thunk-dir", str(temp_dir / ".thunk"), "list"])
 
     assert result.exit_code == 0
     data = json.loads(result.output)
@@ -72,10 +68,7 @@ def test_status_command(runner, temp_dir):
     session_id = json.loads(init_result.output)["session_id"]
 
     # Check status
-    result = runner.invoke(main, [
-        "--thunk-dir", thunk_dir,
-        "status", "--session", session_id
-    ])
+    result = runner.invoke(main, ["--thunk-dir", thunk_dir, "status", "--session", session_id])
 
     assert result.exit_code == 0
     data = json.loads(result.output)
@@ -85,10 +78,9 @@ def test_status_command(runner, temp_dir):
 
 def test_status_nonexistent_session(runner, temp_dir):
     """Test status command for nonexistent session."""
-    result = runner.invoke(main, [
-        "--thunk-dir", str(temp_dir / ".thunk"),
-        "status", "--session", "nonexistent"
-    ])
+    result = runner.invoke(
+        main, ["--thunk-dir", str(temp_dir / ".thunk"), "status", "--session", "nonexistent"]
+    )
 
     assert result.exit_code == 1
     data = json.loads(result.output)
@@ -104,30 +96,24 @@ def test_clean_command(runner, temp_dir):
     session_id = json.loads(init_result.output)["session_id"]
 
     # Clean it
-    result = runner.invoke(main, [
-        "--thunk-dir", thunk_dir,
-        "clean", "--session", session_id
-    ])
+    result = runner.invoke(main, ["--thunk-dir", thunk_dir, "clean", "--session", session_id])
 
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["cleaned"] is True
 
     # Verify it's gone
-    status_result = runner.invoke(main, [
-        "--thunk-dir", thunk_dir,
-        "status", "--session", session_id
-    ])
+    status_result = runner.invoke(
+        main, ["--thunk-dir", thunk_dir, "status", "--session", session_id]
+    )
     assert status_result.exit_code == 1
 
 
 def test_pretty_output(runner, temp_dir):
     """Test pretty JSON output."""
-    result = runner.invoke(main, [
-        "--thunk-dir", str(temp_dir / ".thunk"),
-        "--pretty",
-        "init", "Test feature"
-    ])
+    result = runner.invoke(
+        main, ["--thunk-dir", str(temp_dir / ".thunk"), "--pretty", "init", "Test feature"]
+    )
 
     assert result.exit_code == 0
     # Pretty output should have newlines and indentation
@@ -144,10 +130,7 @@ def test_approve_requires_user_review_phase(runner, temp_dir):
     session_id = json.loads(init_result.output)["session_id"]
 
     # Try to approve immediately
-    result = runner.invoke(main, [
-        "--thunk-dir", thunk_dir,
-        "approve", "--session", session_id
-    ])
+    result = runner.invoke(main, ["--thunk-dir", thunk_dir, "approve", "--session", session_id])
 
     assert result.exit_code == 1
     data = json.loads(result.output)
@@ -163,10 +146,7 @@ def test_continue_requires_user_review_phase(runner, temp_dir):
     session_id = json.loads(init_result.output)["session_id"]
 
     # Try to continue immediately
-    result = runner.invoke(main, [
-        "--thunk-dir", thunk_dir,
-        "continue", "--session", session_id
-    ])
+    result = runner.invoke(main, ["--thunk-dir", thunk_dir, "continue", "--session", session_id])
 
     assert result.exit_code == 1
     data = json.loads(result.output)
