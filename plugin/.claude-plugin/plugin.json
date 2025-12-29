@@ -1,0 +1,20 @@
+{
+  "name": "thunk",
+  "version": "0.1.0",
+  "description": "Orchestrate Claude Code and Codex to collaboratively create implementation plans with human-in-the-loop review",
+  "author": {
+    "name": "Gary Basin"
+  },
+  "repository": "https://github.com/gbasin/thunk",
+  "license": "MIT",
+  "keywords": [
+    "planning",
+    "multi-agent",
+    "ensemble",
+    "orchestration",
+    "implementation-plans",
+    "codex",
+    "claude-code"
+  ],
+  "category": "development"
+}
