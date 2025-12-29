@@ -69,6 +69,7 @@ class AgentAdapter(ABC):
         log_file: Path,
         timeout: int | None = None,
         session_file: Path | None = None,
+        append_log: bool = False,
     ) -> tuple[bool, str]:
         """
         Run agent synchronously.
@@ -80,6 +81,7 @@ class AgentAdapter(ABC):
             log_file: Where to capture agent logs
             timeout: Timeout in seconds
             session_file: Path to store/read CLI session ID for continuation
+            append_log: If True, append to log file instead of overwriting
 
         Returns:
             Tuple of (success, output)

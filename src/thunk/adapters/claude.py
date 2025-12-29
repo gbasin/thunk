@@ -178,6 +178,7 @@ class ClaudeCodeSyncAdapter(AgentAdapter):
         log_file: Path,
         timeout: int | None = None,
         session_file: Path | None = None,
+        append_log: bool = False,
     ) -> tuple[bool, str]:
         """
         Run Claude Code synchronously with session continuation.
@@ -190,7 +191,12 @@ class ClaudeCodeSyncAdapter(AgentAdapter):
 
         try:
             # Use Popen to stream output in real-time
-            with open(log_file, "w") as log_fh:
+            log_mode = "a" if append_log else "w"
+            with open(log_file, log_mode) as log_fh:
+                if append_log:
+                    log_fh.write(f"\n{'=' * 60}\n")
+                    log_fh.write("=== New run ===\n")
+                    log_fh.write(f"{'=' * 60}\n\n")
                 process = subprocess.Popen(
                     cmd,
                     cwd=worktree,

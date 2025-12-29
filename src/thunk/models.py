@@ -88,17 +88,25 @@ class SessionPaths:
         """Get path to a turn's synthesis file."""
         return self.turns / f"{turn:03d}.md"
 
-    def agent_turn_dir(self, turn: int) -> Path:
-        """Get path to agent work for a turn."""
-        return self.agents / f"turn-{turn:03d}"
+    def turn_snapshot_dir(self, turn: int) -> Path:
+        """Get path to a turn's snapshot directory for debugging."""
+        return self.turns / f"{turn:03d}"
 
-    def agent_session_file(self, agent_id: str) -> Path:
+    def agent_plan_file(self, plan_id: str) -> Path:
+        """Get path to an agent's persistent plan file."""
+        return self.root / f"{plan_id}.md"
+
+    def agent_log_file(self, plan_id: str) -> Path:
+        """Get path to an agent's session-wide debug log (appended each turn)."""
+        return self.agents / f"{plan_id}.log"
+
+    def agent_session_file(self, plan_id: str) -> Path:
         """Get path to an agent's CLI session ID file for continuation."""
-        return self.agents / agent_id / "cli_session_id.txt"
+        return self.agents / plan_id / "cli_session_id.txt"
 
-    def agent_dir(self, agent_id: str) -> Path:
+    def agent_dir(self, plan_id: str) -> Path:
         """Get path to an agent's directory."""
-        return self.agents / agent_id
+        return self.agents / plan_id
 
 
 @dataclass

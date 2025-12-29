@@ -1,6 +1,7 @@
 """Turn orchestration for thunk."""
 
 import difflib
+import tempfile
 from pathlib import Path
 
 from .adapters.base import AgentAdapter
@@ -48,8 +49,10 @@ class TurnOrchestrator:
 
         paths = self.manager.get_paths(session_id)
         turn = state.turn
-        turn_agents_dir = paths.agents / f"turn-{turn:03d}"
-        turn_agents_dir.mkdir(parents=True, exist_ok=True)
+
+        # Snapshot dir for debugging this turn
+        snapshot_dir = paths.turn_snapshot_dir(turn)
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
 
         task = state.task
         user_feedback = self._get_user_feedback(paths, turn)
@@ -72,40 +75,49 @@ class TurnOrchestrator:
             state.agents[agent_id] = AgentStatus.WORKING
             self.manager.save_state(state)
 
-            # Agent's working plan file (contains synthesis from previous turn)
             plan_id = state.agent_plan_ids[agent_id]
-            agent_plan_file = paths.root / f"{plan_id}.md"
-            draft_file = turn_agents_dir / f"{agent_id}-draft.md"
-            log_file = turn_agents_dir / f"{agent_id}-draft.log"
 
-            # Build prompt - agent reads their own plan file, writes to draft
+            # Persistent plan file (agent reads/writes here)
+            plan_file = paths.agent_plan_file(plan_id)
+
+            # Session-wide debug log (append mode)
+            session_log = paths.agent_log_file(plan_id)
+            session_log.parent.mkdir(parents=True, exist_ok=True)
+
+            # Snapshot file for this turn (for debugging)
+            snapshot_file = snapshot_dir / f"{plan_id}-draft.md"
+
+            # Build prompt - agent writes directly to their persistent plan file
             prompt = get_draft_prompt(
                 task=task,
                 turn=turn,
-                output_file=str(draft_file),
-                plan_file=str(agent_plan_file) if turn > 1 else "",
+                output_file=str(plan_file),
+                plan_file=str(plan_file) if turn > 1 and plan_file.exists() else "",
                 user_feedback=user_feedback,
             )
 
             # Working directory for agent - use project root so agents can explore
-            # The project root is where .thunk/ lives (parent of sessions dir)
             project_root = self.manager.thunk_dir.parent.resolve()
 
             # Session file for CLI session continuation across turns
-            session_file = paths.agent_session_file(agent_id)
+            session_file = paths.agent_session_file(plan_id)
             session_file.parent.mkdir(parents=True, exist_ok=True)
 
             success, output = adapter.run_sync(
                 worktree=project_root,
                 prompt=prompt,
-                output_file=draft_file,
-                log_file=log_file,
+                output_file=plan_file,
+                log_file=session_log,
                 timeout=self.config.timeout,
                 session_file=session_file,
+                append_log=True,  # Append to session log
             )
 
             if success:
-                drafts[agent_id] = draft_file.read_text() if draft_file.exists() else output
+                content = plan_file.read_text() if plan_file.exists() else output
+                drafts[agent_id] = content
+                # Save snapshot for debugging
+                snapshot_file.write_text(content)
                 state.agents[agent_id] = AgentStatus.DONE
             else:
                 state.agents[agent_id] = AgentStatus.ERROR
@@ -122,7 +134,6 @@ class TurnOrchestrator:
         state.phase = Phase.PEER_REVIEW
         self.manager.save_state(state)
 
-        # Project root for agent working directory
         project_root = self.manager.thunk_dir.parent.resolve()
 
         finals: dict[str, str] = {}
@@ -136,34 +147,43 @@ class TurnOrchestrator:
             state.agents[agent_id] = AgentStatus.WORKING
             self.manager.save_state(state)
 
+            plan_id = state.agent_plan_ids[agent_id]
+
             # Get peer's draft (round-robin)
-            peer_id = agent_ids[(i + 1) % len(agent_ids)]
-            peer_draft = drafts.get(peer_id, "")
+            peer_idx = (i + 1) % len(agent_ids)
+            peer_agent_id = agent_ids[peer_idx]
+            peer_plan_id = state.agent_plan_ids[peer_agent_id]
+            peer_draft = drafts.get(peer_agent_id, "")
 
             prompt = get_peer_review_prompt(
                 task=task,
                 own_draft=drafts[agent_id],
-                peer_id=peer_id,
+                peer_id=peer_plan_id,  # Use plan_id for anonymity
                 peer_draft=peer_draft,
             )
 
-            final_file = turn_agents_dir / f"{agent_id}-final.md"
-            log_file = turn_agents_dir / f"{agent_id}-final.log"
+            # Agent writes to their persistent plan file
+            plan_file = paths.agent_plan_file(plan_id)
+            session_log = paths.agent_log_file(plan_id)
+            snapshot_file = snapshot_dir / f"{plan_id}-reviewed.md"
 
             # Reuse session file for continuation
-            session_file = paths.agent_session_file(agent_id)
+            session_file = paths.agent_session_file(plan_id)
 
             success, output = adapter.run_sync(
                 worktree=project_root,
                 prompt=prompt,
-                output_file=final_file,
-                log_file=log_file,
+                output_file=plan_file,
+                log_file=session_log,
                 timeout=self.config.timeout,
                 session_file=session_file,
+                append_log=True,
             )
 
             if success:
-                finals[agent_id] = final_file.read_text() if final_file.exists() else output
+                content = plan_file.read_text() if plan_file.exists() else output
+                finals[agent_id] = content
+                snapshot_file.write_text(content)
                 state.agents[agent_id] = AgentStatus.DONE
             else:
                 # Fall back to draft
@@ -176,7 +196,7 @@ class TurnOrchestrator:
         state.phase = Phase.SYNTHESIZING
         self.manager.save_state(state)
 
-        synthesis = self._synthesize(task, finals, turn_agents_dir)
+        synthesis = self._synthesize(task, finals, paths)
 
         # Write to turns/NNN.md (user-facing canonical file)
         turn_file = paths.turn_file(turn)
@@ -238,7 +258,7 @@ class TurnOrchestrator:
         self,
         task: str,
         agent_plans: dict[str, str],
-        turn_agents_dir: Path,
+        paths,
     ) -> str:
         """Synthesize agent plans into unified plan."""
         # If only one agent, just use its output
@@ -254,9 +274,13 @@ class TurnOrchestrator:
 
         prompt = get_synthesis_prompt(task, agent_plans)
 
-        synth_file = turn_agents_dir / "synthesis.md"
-        log_file = turn_agents_dir / "synthesis.log"
-        # Use project root for synthesis agent too
+        # Synthesizer writes to a temp file, caller writes to turn file
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as tmp:
+            synth_file = Path(tmp.name)
+
+        log_file = paths.agents / "synthesizer.log"
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+
         project_root = self.manager.thunk_dir.parent.resolve()
 
         success, output = adapter.run_sync(
@@ -265,10 +289,15 @@ class TurnOrchestrator:
             output_file=synth_file,
             log_file=log_file,
             timeout=self.config.timeout,
+            append_log=True,
         )
 
         if success and synth_file.exists():
-            return synth_file.read_text()
+            result = synth_file.read_text()
+            synth_file.unlink()  # Clean up temp file
+            return result
+
+        synth_file.unlink(missing_ok=True)
 
         # Fallback: just concatenate
         result = f"# Plan: {task}\n\n"

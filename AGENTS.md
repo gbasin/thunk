@@ -43,7 +43,7 @@ Thunk is a multi-agent ensemble planning CLI. It orchestrates multiple AI agents
 (Claude Code, OpenAI Codex) to collaboratively create implementation plans for
 tasks, with human-in-the-loop review.
 
-See `DESIGN.md` for the full architecture and design decisions.
+See `README.md` for full documentation.
 
 ## Commands
 
@@ -72,21 +72,21 @@ See `DESIGN.md` for the full architecture and design decisions.
 ## Session File Structure
 
     .thunk/sessions/swift-river/      # Human-friendly session ID
-    ├── meta.yaml        # Task description, timestamp
-    ├── state.yaml       # Current turn, phase, agent_plan_ids
-    ├── bold-peak.md     # Agent's working plan (opaque name)
-    ├── calm-forest.md   # Another agent's working plan
+    ├── meta.yaml                     # Task description, timestamp
+    ├── state.yaml                    # Turn, phase, agent_plan_ids mapping
+    ├── sunny-glade.md                # Agent's persistent plan (plan_id)
+    ├── amber-marsh.md                # Another agent's plan
     ├── turns/
-    │   ├── 001.md       # Turn 1 synthesis (user edits this)
-    │   ├── 002.md       # Turn 2
+    │   ├── 001.md                    # Turn 1 synthesis (user edits this)
+    │   ├── 001.snapshot.md           # Pre-edit snapshot (for diffing)
+    │   ├── 001/                      # Debug snapshots
+    │   │   ├── sunny-glade-draft.md
+    │   │   └── sunny-glade-reviewed.md
     │   └── ...
     ├── agents/
-    │   ├── opus/
-    │   │   └── cli_session_id.txt   # For --resume
-    │   ├── codex/
-    │   │   └── cli_session_id.txt   # For resume
-    │   └── turn-001/
-    │       ├── opus-draft.md
-    │       ├── opus-final.md
-    │       └── ...
-    └── PLAN.md          # Symlink to approved turn
+    │   ├── sunny-glade.log           # Session-wide debug log (appended)
+    │   ├── sunny-glade/
+    │   │   └── cli_session_id.txt    # For --resume
+    │   ├── amber-marsh.log
+    │   └── synthesizer.log
+    └── PLAN.md                       # Symlink to approved turn
