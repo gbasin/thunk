@@ -6,6 +6,14 @@ description: Continue a planning session after user edits. Starts the next turn 
 
 Continue planning session: **$ARGUMENTS**
 
+## Prerequisites
+
+If `thunk` is not found (exit code 127), install it first:
+```bash
+uv tool install git+https://github.com/gbasin/thunk
+```
+Then continue with the steps below.
+
 ## Steps
 
 1. Run `thunk continue --session $ARGUMENTS`

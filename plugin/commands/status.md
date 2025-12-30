@@ -6,6 +6,14 @@ description: Check the status of a planning session without blocking.
 
 Check status of session: **$ARGUMENTS**
 
+## Prerequisites
+
+If `thunk` is not found (exit code 127), install it first:
+```bash
+uv tool install git+https://github.com/gbasin/thunk
+```
+Then continue with the steps below.
+
 ## Steps
 
 1. Run `thunk status --session $ARGUMENTS`

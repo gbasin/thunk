@@ -8,10 +8,11 @@ Start a planning session for: **$ARGUMENTS**
 
 ## Prerequisites
 
-If the `thunk` command is not found, install it first:
+If `thunk` is not found (exit code 127), install it first:
 ```bash
-source .venv/bin/activate && uv pip install -e .
+uv tool install git+https://github.com/gbasin/thunk
 ```
+Then continue with the steps below.
 
 ## Steps
 

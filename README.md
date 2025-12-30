@@ -13,8 +13,13 @@ Multi-agent ensemble planning CLI. Orchestrates multiple AI agents (Claude Code,
 ## Install
 
 ```bash
-uv venv && source .venv/bin/activate
-uv pip install -e .
+uv tool install git+https://github.com/gbasin/thunk
+```
+
+To update:
+
+```bash
+uv tool upgrade thunk
 ```
 
 ## Quick Start
@@ -144,6 +149,15 @@ src/thunk/
 ```
 
 ## Development
+
+```bash
+git clone https://github.com/gbasin/thunk
+cd thunk
+uv venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
+Run tests and checks:
 
 ```bash
 pytest                         # tests
