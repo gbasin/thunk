@@ -196,7 +196,7 @@ class TurnOrchestrator:
         state.phase = Phase.SYNTHESIZING
         self.manager.save_state(state)
 
-        synthesis = self._synthesize(task, finals, paths)
+        synthesis = self._synthesize(task, finals, paths, user_feedback)
 
         # Write to turns/NNN.md (user-facing canonical file)
         turn_file = paths.turn_file(turn)
@@ -259,8 +259,16 @@ class TurnOrchestrator:
         task: str,
         agent_plans: dict[str, str],
         paths,
+        user_diff: str = "",
     ) -> str:
-        """Synthesize agent plans into unified plan."""
+        """Synthesize agent plans into unified plan.
+
+        Args:
+            task: Task description
+            agent_plans: Dict mapping agent_id to their reviewed plan
+            paths: Session paths
+            user_diff: User's changes from previous turn (for turn > 1)
+        """
         # If only one agent, just use its output
         if len(agent_plans) == 1:
             return list(agent_plans.values())[0]
@@ -272,7 +280,7 @@ class TurnOrchestrator:
         else:
             adapter = CodexCLISyncAdapter(synth_config)
 
-        prompt = get_synthesis_prompt(task, agent_plans)
+        prompt = get_synthesis_prompt(task, agent_plans, user_diff=user_diff)
 
         # Synthesizer writes to a temp file, caller writes to turn file
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as tmp:
@@ -280,6 +288,10 @@ class TurnOrchestrator:
 
         log_file = paths.agents / "synthesizer.log"
         log_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Session file for synthesizer continuation across turns
+        synth_session_file = paths.agents / "synthesizer" / "cli_session_id.txt"
+        synth_session_file.parent.mkdir(parents=True, exist_ok=True)
 
         project_root = self.manager.thunk_dir.parent.resolve()
 
@@ -289,6 +301,7 @@ class TurnOrchestrator:
             output_file=synth_file,
             log_file=log_file,
             timeout=self.config.timeout,
+            session_file=synth_session_file,
             append_log=True,
         )
 

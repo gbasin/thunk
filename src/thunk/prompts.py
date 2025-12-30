@@ -104,7 +104,7 @@ Combine multiple agent plans into a unified plan.
 
 ## Task
 {task}
-
+{user_changes_section}
 ## Agent Plans
 
 {agent_plans}
@@ -118,6 +118,27 @@ Combine multiple agent plans into a unified plan.
 If agents disagree, add a ## Conflicts section explaining the options.
 
 {plan_format}
+"""
+
+SYNTHESIS_USER_CHANGES = """
+## User's Changes From Previous Turn (IMPORTANT)
+
+The user made these changes to the plan:
+
+{user_diff}
+
+**Interpret user intent:**
+- **New requirements** (firm statements like "Must support X"): MUST appear in final plan
+- **Questions** ("What about..?", "Should we..?"): Verify agents addressed them;
+  include the ANSWER in the plan, not the question itself
+- **Uncertain language** ("maybe", "consider", "could"): Treat as suggestions to
+  evaluate against agent plans, not hard requirements
+- **Comments/TODOs** (<!-- -->, TODO:, NOTE:): Notes for agents, not final plan content
+- **Deletions**: Do NOT re-add deleted content under any circumstances
+
+**Key principle:** Respect the user's INTENT, not just their exact words.
+If the user asked a question, the agents should have answered it—synthesize their answer.
+If the user deleted something, it stays deleted even if agents still mention it.
 """
 
 REFINE_PROMPT = """# Plan Refinement Task (Turn {turn})
@@ -203,14 +224,31 @@ def get_peer_review_prompt(
     )
 
 
-def get_synthesis_prompt(task: str, agent_plans: dict[str, str]) -> str:
-    """Get the synthesis prompt."""
+def get_synthesis_prompt(
+    task: str,
+    agent_plans: dict[str, str],
+    user_diff: str = "",
+) -> str:
+    """Get the synthesis prompt.
+
+    Args:
+        task: Task description
+        agent_plans: Dict mapping agent_id to their plan content
+        user_diff: User's changes from previous turn (for turn > 1)
+    """
     plans_text = ""
     for agent_id, plan in agent_plans.items():
         plans_text += f"### {agent_id}\n\n{plan}\n\n"
 
+    # Include user changes section if there's a diff
+    if user_diff:
+        user_changes_section = SYNTHESIS_USER_CHANGES.format(user_diff=user_diff)
+    else:
+        user_changes_section = ""
+
     return SYNTHESIS_PROMPT.format(
         task=task,
+        user_changes_section=user_changes_section,
         agent_plans=plans_text,
         plan_format=PLAN_FORMAT,
     )

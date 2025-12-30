@@ -100,6 +100,40 @@ def test_get_synthesis_prompt_single_agent():
     assert "Solo plan content" in prompt
 
 
+def test_get_synthesis_prompt_with_user_diff():
+    """Test synthesis prompt includes user changes when provided."""
+    user_diff = """```diff
+- Task 3: Add caching
++ Task 3: Add Redis caching with TTL
+```"""
+    prompt = get_synthesis_prompt(
+        task="Add caching layer",
+        agent_plans={
+            "opus": "Opus plan",
+            "codex": "Codex plan",
+        },
+        user_diff=user_diff,
+    )
+
+    assert "User's Changes From Previous Turn" in prompt
+    assert "IMPORTANT" in prompt
+    assert "Add Redis caching with TTL" in prompt
+    assert "Do NOT re-add deleted content" in prompt
+    assert "Interpret user intent" in prompt
+    assert "ANSWER" in prompt  # Questions should be answered, not preserved
+
+
+def test_get_synthesis_prompt_no_user_diff():
+    """Test synthesis prompt omits user changes section when empty."""
+    prompt = get_synthesis_prompt(
+        task="Add caching layer",
+        agent_plans={"opus": "Opus plan"},
+        user_diff="",
+    )
+
+    assert "User's Changes From Previous Turn" not in prompt
+
+
 def test_get_refine_prompt():
     """Test refinement prompt generation."""
     prompt = get_refine_prompt(
