@@ -7,22 +7,20 @@
 
 ## Quick Start
 
-    uv venv && source .venv/bin/activate
-    uv pip install -e ".[dev]"
-    thunk --help
+uv venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
+thunk --help
 
 ## Repo Commands
 
-    pytest                         # tests
-    pyright src/thunk tests        # typecheck
-    ruff check . && ruff format .  # lint/format
+pytest                         # tests
+pyright src/thunk tests        # typecheck
+ruff check . && ruff format .  # lint/format
 
 ## Coding Standards
 
 - Python 3.11+, type annotations on public APIs
 - `ruff format` for style, `pytest` for tests
-- Keep files <500 LOC; refactor when needed
-- Fix root causes, not symptoms
 
 ## Git Rules
 
@@ -37,6 +35,13 @@
 - Document unexpected behavior
 - Call out conflicts between instructions
 
+## Engineering
+
+- Small files (<500 LOC), descriptive paths, current header comments (agents navigate via filesystem and read line-by-line)
+- Fix root causes, not symptoms
+- Simplicity > cleverness (even if it means bigger refactors)
+- 100% test coverage (forces edge-case thinking)
+
 ## Project Overview
 
 Thunk is a multi-agent ensemble planning CLI. It orchestrates multiple AI agents
@@ -47,46 +52,46 @@ See `README.md` for full documentation.
 
 ## Commands
 
-    thunk init "task description"        # Start planning session
-    thunk wait --session <id>            # Block until turn complete
-    thunk continue --session <id>        # Start next turn after user edits
-    thunk approve --session <id>         # Lock plan as final
-    thunk status --session <id>          # Check progress
-    thunk list                           # List all sessions
-    thunk clean --session <id>           # Remove session
-    thunk diff --session <id>            # Show changes between turns
+thunk init "task description"        # Start planning session
+thunk wait --session <id>            # Block until turn complete
+thunk continue --session <id>        # Start next turn after user edits
+thunk approve --session <id>         # Lock plan as final
+thunk status --session <id>          # Check progress
+thunk list                           # List all sessions
+thunk clean --session <id>           # Remove session
+thunk diff --session <id>            # Show changes between turns
 
 ## Architecture
 
-    src/thunk/
-    ├── cli.py           # Click CLI commands
-    ├── models.py        # Data models (SessionState, Phase, etc.)
-    ├── session.py       # Session management
-    ├── orchestrator.py  # Turn orchestration (draft → peer review → synthesis)
-    ├── prompts.py       # Agent prompt templates
-    └── adapters/
-        ├── base.py      # AgentAdapter interface
-        ├── claude.py    # Claude Code adapter (with session continuation)
-        └── codex.py     # Codex CLI adapter (with session continuation)
+src/thunk/
+├── cli.py           # Click CLI commands
+├── models.py        # Data models (SessionState, Phase, etc.)
+├── session.py       # Session management
+├── orchestrator.py  # Turn orchestration (draft → peer review → synthesis)
+├── prompts.py       # Agent prompt templates
+└── adapters/
+    ├── base.py      # AgentAdapter interface
+    ├── claude.py    # Claude Code adapter (with session continuation)
+    └── codex.py     # Codex CLI adapter (with session continuation)
 
 ## Session File Structure
 
-    .thunk/sessions/swift-river/      # Human-friendly session ID
-    ├── meta.yaml                     # Task description, timestamp
-    ├── state.yaml                    # Turn, phase, agent_plan_ids mapping
-    ├── sunny-glade.md                # Agent's persistent plan (plan_id)
-    ├── amber-marsh.md                # Another agent's plan
-    ├── turns/
-    │   ├── 001.md                    # Turn 1 synthesis (user edits this)
-    │   ├── 001.snapshot.md           # Pre-edit snapshot (for diffing)
-    │   ├── 001/                      # Debug snapshots
-    │   │   ├── sunny-glade-draft.md
-    │   │   └── sunny-glade-reviewed.md
-    │   └── ...
-    ├── agents/
-    │   ├── sunny-glade.log           # Session-wide debug log (appended)
-    │   ├── sunny-glade/
-    │   │   └── cli_session_id.txt    # For --resume
-    │   ├── amber-marsh.log
-    │   └── synthesizer.log
-    └── PLAN.md                       # Symlink to approved turn
+.thunk/sessions/swift-river/      # Human-friendly session ID
+├── meta.yaml                     # Task description, timestamp
+├── state.yaml                    # Turn, phase, agent_plan_ids mapping
+├── sunny-glade.md                # Agent's persistent plan (plan_id)
+├── amber-marsh.md                # Another agent's plan
+├── turns/
+│   ├── 001.md                    # Turn 1 synthesis (user edits this)
+│   ├── 001.snapshot.md           # Pre-edit snapshot (for diffing)
+│   ├── 001/                      # Debug snapshots
+│   │   ├── sunny-glade-draft.md
+│   │   └── sunny-glade-reviewed.md
+│   └── ...
+├── agents/
+│   ├── sunny-glade.log           # Session-wide debug log (appended)
+│   ├── sunny-glade/
+│   │   └── cli_session_id.txt    # For --resume
+│   ├── amber-marsh.log
+│   └── synthesizer.log
+└── PLAN.md                       # Symlink to approved turn
