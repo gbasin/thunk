@@ -62,11 +62,11 @@ class CodexCLIAdapter(AgentAdapter):
         thread_id = _read_thread_id(session_file)
 
         if thread_id:
-            # Resume existing session: codex resume <thread_id> --json "prompt"
-            return ["codex", "resume", thread_id, "--json", prompt]
+            # Resume existing session via exec subcommand (--json only works on exec)
+            return ["codex", "exec", "--json", "--full-auto", "resume", thread_id, prompt]
         else:
             # New session: codex exec --json "prompt"
-            return ["codex", "exec", "--json", prompt]
+            return ["codex", "exec", "--json", "--full-auto", prompt]
 
     def spawn(
         self,
@@ -115,11 +115,12 @@ class CodexCLISyncAdapter(AgentAdapter):
         thread_id = _read_thread_id(session_file)
 
         if thread_id:
-            # Resume existing session (--json must come before session ID)
-            cmd = ["codex", "resume", "--json", thread_id]
+            # Resume existing session via exec subcommand (--json only works on exec)
+            cmd = ["codex", "exec", "--json", "--full-auto"]
             # Add project root for resumed sessions too
             if project_root:
                 cmd.extend(["--add-dir", str(project_root)])
+            cmd.extend(["resume", thread_id])
         else:
             # New session with full auto mode for minimal friction
             cmd = ["codex", "exec", "--json"]
