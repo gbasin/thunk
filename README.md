@@ -1,5 +1,7 @@
 # Thunk
 
+WARNING: This Python implementation is deprecated. The active Bun + TypeScript rewrite lives at `../thunk-ts`. New development should happen there.
+
 Multi-agent ensemble planning CLI. Orchestrates multiple AI agents (Claude Code, OpenAI Codex) to collaboratively create implementation plans with human-in-the-loop review.
 
 ## Why Thunk?

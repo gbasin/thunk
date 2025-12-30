@@ -1,5 +1,7 @@
 # AGENTS.md — How to work in this repo
 
+WARNING: This Python implementation is deprecated. The active Bun + TypeScript rewrite lives at `../thunk-ts`. New development should happen there.
+
 ## Environment
 
 - Python 3.11+ via `uv`
