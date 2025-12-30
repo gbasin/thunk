@@ -1,8 +1,6 @@
 """Turn orchestration for thunk."""
 
 import difflib
-import tempfile
-from pathlib import Path
 
 from .adapters.base import AgentAdapter
 from .adapters.claude import ClaudeCodeSyncAdapter
@@ -280,9 +278,10 @@ class TurnOrchestrator:
         else:
             adapter = CodexCLISyncAdapter(synth_config)
 
-        # Synthesizer writes to a temp file, caller writes to turn file
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as tmp:
-            synth_file = Path(tmp.name)
+        # Synthesizer writes to a temp file in the session directory (not /var/folders)
+        # so Claude Code has write access (it runs with worktree = project root)
+        synth_file = paths.agents / "synthesis_temp.md"
+        synth_file.parent.mkdir(parents=True, exist_ok=True)
 
         prompt = get_synthesis_prompt(
             task, agent_plans, output_file=str(synth_file), user_diff=user_diff
