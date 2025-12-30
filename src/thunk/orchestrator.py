@@ -280,11 +280,13 @@ class TurnOrchestrator:
         else:
             adapter = CodexCLISyncAdapter(synth_config)
 
-        prompt = get_synthesis_prompt(task, agent_plans, user_diff=user_diff)
-
         # Synthesizer writes to a temp file, caller writes to turn file
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as tmp:
             synth_file = Path(tmp.name)
+
+        prompt = get_synthesis_prompt(
+            task, agent_plans, output_file=str(synth_file), user_diff=user_diff
+        )
 
         log_file = paths.agents / "synthesizer.log"
         log_file.parent.mkdir(parents=True, exist_ok=True)

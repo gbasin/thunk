@@ -11,6 +11,12 @@ If you have questions that would affect the plan, add them here:
 
 ---
 
+## Notes for Agents
+
+<!-- Add feedback for agents here. Delete this comment when adding notes. -->
+
+---
+
 ## Summary
 
 [2-3 sentence overview of the approach]
@@ -116,6 +122,8 @@ Combine multiple agent plans into a unified plan.
 4. Merge into a coherent unified plan
 
 If agents disagree, add a ## Conflicts section explaining the options.
+
+Write your unified plan to: `{output_file}`
 
 {plan_format}
 """
@@ -227,6 +235,7 @@ def get_peer_review_prompt(
 def get_synthesis_prompt(
     task: str,
     agent_plans: dict[str, str],
+    output_file: str,
     user_diff: str = "",
 ) -> str:
     """Get the synthesis prompt.
@@ -234,6 +243,7 @@ def get_synthesis_prompt(
     Args:
         task: Task description
         agent_plans: Dict mapping agent_id to their plan content
+        output_file: Path where synthesizer should write the unified plan
         user_diff: User's changes from previous turn (for turn > 1)
     """
     plans_text = ""
@@ -250,6 +260,7 @@ def get_synthesis_prompt(
         task=task,
         user_changes_section=user_changes_section,
         agent_plans=plans_text,
+        output_file=output_file,
         plan_format=PLAN_FORMAT,
     )
 

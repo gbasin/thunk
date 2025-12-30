@@ -78,6 +78,7 @@ def test_get_synthesis_prompt():
             "opus": "Opus plan content",
             "codex": "Codex plan content",
         },
+        output_file="/path/to/synthesis.md",
     )
 
     assert "Add caching layer" in prompt
@@ -86,6 +87,7 @@ def test_get_synthesis_prompt():
     assert "codex" in prompt
     assert "Codex plan content" in prompt
     assert "Synthesis" in prompt
+    assert "/path/to/synthesis.md" in prompt
     assert PLAN_FORMAT in prompt
 
 
@@ -94,10 +96,12 @@ def test_get_synthesis_prompt_single_agent():
     prompt = get_synthesis_prompt(
         task="Add caching layer",
         agent_plans={"opus": "Solo plan content"},
+        output_file="/path/to/synthesis.md",
     )
 
     assert "opus" in prompt
     assert "Solo plan content" in prompt
+    assert "/path/to/synthesis.md" in prompt
 
 
 def test_get_synthesis_prompt_with_user_diff():
@@ -112,6 +116,7 @@ def test_get_synthesis_prompt_with_user_diff():
             "opus": "Opus plan",
             "codex": "Codex plan",
         },
+        output_file="/path/to/synthesis.md",
         user_diff=user_diff,
     )
 
@@ -128,6 +133,7 @@ def test_get_synthesis_prompt_no_user_diff():
     prompt = get_synthesis_prompt(
         task="Add caching layer",
         agent_plans={"opus": "Opus plan"},
+        output_file="/path/to/synthesis.md",
         user_diff="",
     )
 
